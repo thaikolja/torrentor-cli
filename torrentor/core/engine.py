@@ -61,6 +61,24 @@ def parse_progress(line: str) -> dict | None:
     return None
 
 
+# Convert a speed string like "1.2 MB/s" or "500 kB/s" into a numeric kB/s value
+def parse_speed_kbps(speed_str: str) -> float:
+    """Turn a human-readable speed string into kB/s. Returns 0.0 for anything unparseable."""
+    speed_str = speed_str.strip()
+    # Dash or empty means no speed data
+    if not speed_str or speed_str == "—":
+        return 0.0
+    # Try to extract the number and unit
+    match = re.match(r"([\d.]+)\s*(kB/s|MB/s|GB/s|B/s)", speed_str, re.IGNORECASE)
+    if not match:
+        return 0.0
+    value = float(match.group(1))
+    unit = match.group(2).lower()
+    # Normalize everything to kB/s
+    multipliers = {"b/s": 1 / 1024, "kb/s": 1.0, "mb/s": 1024.0, "gb/s": 1024.0 * 1024.0}
+    return value * multipliers.get(unit, 1.0)
+
+
 class TransmissionEngine:
     """Manages a transmission-cli subprocess: start, monitor progress, stop on completion."""
 

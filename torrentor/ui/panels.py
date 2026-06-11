@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, console
+from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, WARNING, console
 
 
 # Generic info panel — cyan border, bold title
@@ -83,6 +83,29 @@ def dependency_error() -> None:
         content,
         title=f"[bold {ERROR}]Missing Dependency[/]",
         border_style=ERROR,
+        padding=(1, 1),
+    )
+    console.print(panel)
+
+
+# Slow download notification — yellow border, tips to improve speed
+def slow_download_warning() -> None:
+    """Show a non-blocking warning with tips when the download is unusually slow."""
+    content = Text()
+    content.append(
+        "  Your download seems unusually slow. A few things to try:\n\n", style="default"
+    )
+    content.append("  • Check your internet connection\n", style="default")
+    content.append(
+        "  • Try a torrent with more seeders (more people sharing = faster)\n", style="default"
+    )
+    content.append("  • Make sure your firewall isn't blocking the connection\n", style="default")
+    content.append("  • Try a different network or a VPN\n", style="default")
+
+    panel = Panel(
+        content,
+        title=f"[bold {WARNING}]Slow Download[/]",
+        border_style=WARNING,
         padding=(1, 1),
     )
     console.print(panel)

@@ -1,5 +1,6 @@
 """Typer CLI app — commands: add, config (set/reset/path), and an interactive mode."""
 
+import time
 from pathlib import Path
 from urllib.parse import unquote_plus
 
@@ -8,7 +9,7 @@ from rich.progress import TaskID
 
 from torrentor import __version__
 from torrentor.core.config import CONFIG_FILE, TorrentorConfig, load_config, save_config
-from torrentor.core.engine import TransmissionEngine, is_transmission_installed
+from torrentor.core.engine import TransmissionEngine, is_transmission_installed, parse_speed_kbps
 from torrentor.core.postprocess import (
     cleanup,
     format_size,
@@ -24,6 +25,7 @@ from torrentor.ui.panels import (
     error_panel,
     info_panel,
     settings_panel,
+    slow_download_warning,
     success_panel,
     torrent_details_panel,
 )
@@ -42,10 +44,16 @@ from torrentor.ui.prompts import (
 )
 from torrentor.ui.theme import CYAN, DIM, console
 
+# How long to wait before checking if the download is slow (in seconds)
+_SLOW_CHECK_DELAY = 90
+# Speed below this (in kB/s) is considered slow
+_SLOW_THRESHOLD_KBPS = 10.0
+
 # Main Typer app and its nested config sub-app
 app = typer.Typer(
     name="torrentor",
-    help="Download torrents from the command line — easy, fast, cross-platform.",
+    help="Download torrents from the command line: easy, fast, cross-platform.",
+    epilog="Run [bold]torrentor add -h[/bold] to see all download flags.",
     add_completion=False,
     rich_markup_mode="rich",
     no_args_is_help=False,
@@ -118,9 +126,13 @@ def _run_download(
     task_label = name if len(name) <= 30 else name[:27] + "..."
     task_id: TaskID | None = None
 
+    # Track elapsed time and whether we've already shown the slow-download warning
+    download_start = time.monotonic()
+    slow_warned = False
+
     # This callback gets called by the engine on every progress update
     def on_progress(info: dict) -> None:
-        nonlocal task_id
+        nonlocal task_id, slow_warned
         pct = info.get("progress", 0.0)
         fields = {
             "down": info.get("down_speed", "—"),
@@ -132,6 +144,14 @@ def _run_download(
             task_id = progress.add_task(task_label, total=100, completed=pct, **fields)
         else:
             progress.update(task_id, completed=pct, **fields)
+
+        # After 90 seconds, check if the download is unusually slow
+        elapsed = time.monotonic() - download_start
+        if not slow_warned and elapsed > _SLOW_CHECK_DELAY:
+            speed = parse_speed_kbps(info.get("down_speed", "—"))
+            if speed < _SLOW_THRESHOLD_KBPS or pct < 1.0:
+                slow_download_warning()
+                slow_warned = True
 
     # Show controls hint and start the download with spinner visible from the start
     show_controls_hint()

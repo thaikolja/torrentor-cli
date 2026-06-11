@@ -7,6 +7,7 @@ from torrentor.core.engine import (
     TransmissionEngine,
     is_transmission_installed,
     parse_progress,
+    parse_speed_kbps,
 )
 
 
@@ -123,3 +124,32 @@ class TestBuildCommand:
         assert "-seq" not in cmd
         assert "-v" not in cmd
         assert "-b" not in cmd
+
+
+class TestParseSpeedKbps:
+    """Verify that parse_speed_kbps() converts speed strings to numeric kB/s values."""
+
+    def test_kilobytes(self) -> None:
+        assert parse_speed_kbps("500 kB/s") == 500.0
+
+    def test_megabytes(self) -> None:
+        assert parse_speed_kbps("1.2 MB/s") == 1.2 * 1024
+
+    def test_zero(self) -> None:
+        assert parse_speed_kbps("0 kB/s") == 0.0
+
+    def test_dash(self) -> None:
+        assert parse_speed_kbps("—") == 0.0
+
+    def test_empty(self) -> None:
+        assert parse_speed_kbps("") == 0.0
+
+    def test_bytes_per_second(self) -> None:
+        result = parse_speed_kbps("512 B/s")
+        assert result == 512 / 1024
+
+    def test_gigabytes(self) -> None:
+        assert parse_speed_kbps("1 GB/s") == 1024 * 1024
+
+    def test_garbage(self) -> None:
+        assert parse_speed_kbps("hello") == 0.0
