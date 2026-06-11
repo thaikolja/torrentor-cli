@@ -57,18 +57,21 @@ _SLOW_CHECK_DELAY = 90
 # Speed below this (in kB/s) is considered slow
 _SLOW_THRESHOLD_KBPS = 10.0
 
+
 # Custom group that treats unknown first args as a torrent source, not a subcommand
 class _SourceGroup(TyperGroup):
-    """When the first argument isn't a known command like 'config', pass it through as ctx.args."""
+    """When the first positional arg isn't a known command, pass it through as ctx.args."""
 
-    def resolve_command(self, ctx: typer.Context, args: list[str]) -> tuple:  # type: ignore[override]
-        """Try subcommand matching first; fall through silently if no match."""
+    def invoke(self, ctx: typer.Context) -> object:  # type: ignore[override]
+        """Check if the first arg is a known command; if not, invoke the callback directly."""
+        args = [*ctx._protected_args, *ctx.args]
         cmd_name = args[0] if args else None
         if cmd_name and cmd_name in (self.commands or {}):
-            return super().resolve_command(ctx, args)
-        # Not a known command — stash args for the callback and return no command
-        ctx.args = list(args)
-        return None, None, []
+            return super().invoke(ctx)
+        if cmd_name:
+            ctx.args = list(args)
+            ctx._protected_args = []
+        return TyperGroup.__mro__[1].invoke(self, ctx)  # type: ignore[attr-defined]
 
 
 # Main Typer app and its nested config sub-app
@@ -138,7 +141,7 @@ def _has_cache_data(engine: TransmissionEngine | None) -> bool:
     data_dir = engine.temp_dir / "data"
     if not data_dir.exists():
         return False
-    return any(f for f in data_dir.iterdir() if not f.name.startswith("."))
+    return any(not f.name.startswith(".") for f in data_dir.iterdir())
 
 
 # Valid boolean string values the user can pass to TRUE/FALSE flags
@@ -557,6 +560,7 @@ def _interactive_add() -> None:
 
         # Validation failed (no engine created) — ask for a new source instead of retrying the same one
         if engine is None:
+            resume_dir = None
             console.print()
             try:
                 if method == "magnet":
