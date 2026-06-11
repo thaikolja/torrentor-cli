@@ -1,3 +1,5 @@
+"""Rich UI panels: info, error, success, dependency warnings, torrent details, settings, and active-downloads cards."""
+
 import platform
 
 from rich.align import Align
@@ -8,7 +10,9 @@ from rich.text import Text
 from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, WARNING, console
 
 
+# Generic info panel — cyan border, bold title
 def info_panel(title: str, message: str) -> None:
+    """Show an informational cyan-bordered panel."""
     panel = Panel(
         Align.left(Text(message, style="default")),
         title=f"[bold {CYAN}]{title}[/]",
@@ -18,7 +22,9 @@ def info_panel(title: str, message: str) -> None:
     console.print(panel)
 
 
+# Error panel — red border, bold title
 def error_panel(message: str) -> None:
+    """Show a red-bordered error panel."""
     panel = Panel(
         Align.left(Text(message, style=ERROR)),
         title=f"[bold {ERROR}]Error[/]",
@@ -28,7 +34,9 @@ def error_panel(message: str) -> None:
     console.print(panel)
 
 
+# Dependency-missing panel — platform-specific install instructions + download link
 def dependency_error() -> None:
+    """Show a detailed panel when transmission-cli is not found, with per-OS install commands."""
     content = Text()
     content.append("  transmission-cli", style=f"bold {CYAN}")
     content.append(" was not found on your system.\n", style="default")
@@ -36,6 +44,7 @@ def dependency_error() -> None:
 
     content.append("  Install it:\n\n", style=f"bold {ACCENT}")
 
+    # Detect the OS and show the right command
     system = platform.system().lower()
     instructions = []
     if system == "darwin":
@@ -71,7 +80,9 @@ def dependency_error() -> None:
     console.print(panel)
 
 
+# Success panel — green border, bold title
 def success_panel(message: str) -> None:
+    """Show a green-bordered success panel."""
     panel = Panel(
         Align.left(Text(message, style=SUCCESS)),
         title=f"[bold {SUCCESS}]Success[/]",
@@ -81,7 +92,9 @@ def success_panel(message: str) -> None:
     console.print(panel)
 
 
+# Download-complete panel — shows the zip file path and its size
 def download_complete_panel(zip_path: str, zip_size: str) -> None:
+    """Show a completion panel with the final zip file path and total size."""
     content = Text()
     content.append("  Download complete and packaged!\n\n", style="default")
     content.append("  File   ", style=f"bold {ACCENT}")
@@ -98,9 +111,11 @@ def download_complete_panel(zip_path: str, zip_size: str) -> None:
     console.print(panel)
 
 
+# Torrent details panel — name, type (magnet/file), source URI, and optional output dir
 def torrent_details_panel(
     name: str, source_type: str, source: str, output_dir: str | None = None
 ) -> None:
+    """Show a magenta-bordered panel with torrent metadata."""
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style=f"bold {ACCENT}")
     table.add_column(style="default")
@@ -119,7 +134,9 @@ def torrent_details_panel(
     console.print(panel)
 
 
+# Settings panel — shows all current config values in a key-value table
 def settings_panel(config: dict) -> None:
+    """Display the current configuration in a cyan-bordered table inside a panel."""
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style=f"bold {ACCENT}")
     table.add_column(style="default")
@@ -148,7 +165,9 @@ def settings_panel(config: dict) -> None:
     console.print(panel)
 
 
+# Active-downloads status cards — each torrent is rendered as a mini card with progress and metadata
 def status_table(torrents: list[dict]) -> None:
+    """Render a list of torrents as styled status cards inside a Panel."""
     status_colors = {
         "downloading": SUCCESS,
         "seeding": MAGENTA,
@@ -165,6 +184,7 @@ def status_table(torrents: list[dict]) -> None:
 
     content = Text()
     for i, t in enumerate(torrents):
+        # Separator between torrents
         if i > 0:
             content.append(f"\n  {'─' * 52}\n\n", style=DIM)
 
@@ -173,10 +193,12 @@ def status_table(torrents: list[dict]) -> None:
         color = status_colors.get(status, DIM)
         icon = status_icons.get(status, "·")
 
+        # First line: icon + name + status label
         content.append(f"  {icon} ", style=color)
         content.append(name, style="bold")
         content.append(f"  {status.upper()}\n", style=color)
 
+        # Second line: progress bar + percentage
         pct = t.get("progress", 0)
         bar_width = 30
         filled = int(bar_width * pct / 100)
@@ -185,6 +207,7 @@ def status_table(torrents: list[dict]) -> None:
         content.append("━" * (bar_width - filled), style=DIM)
         content.append(f"  {pct:>3}%\n", style="bold")
 
+        # Third line: download/upload speeds, peers, ETA
         details = []
         down = t.get("down_speed", "—")
         up = t.get("up_speed", "—")

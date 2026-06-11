@@ -1,6 +1,9 @@
+"""Color palette, Rich console with custom theme, and InquirerPy style overrides."""
+
 from rich.console import Console
 from rich.theme import Theme
 
+# Brand colours — picked to look great on a dark terminal
 CYAN = "#00d7ff"
 MAGENTA = "#ff5fff"
 ACCENT = "#87d7ff"
@@ -10,6 +13,7 @@ ERROR = "#ff5555"
 WARNING = "#ffaf00"
 TEXT = "#e4e4e4"
 
+# Rich theme so we can use [info], [success], etc. in f-strings / markup
 custom_theme = Theme(
     {
         "info": f"bold {CYAN}",
@@ -29,6 +33,7 @@ custom_theme = Theme(
 
 console = Console(theme=custom_theme)
 
+# InquirerPy style dict — maps prompt component names to ANSI / hex styles
 INQUIRER_STYLE = {
     "questionmark": f"{CYAN} bold",
     "answermark": f"{SUCCESS} bold",

@@ -1,3 +1,5 @@
+"""Tests for the transmission engine: progress parsing, command building, and install check."""
+
 from unittest.mock import patch
 
 from torrentor.core.config import TorrentorConfig
@@ -9,6 +11,8 @@ from torrentor.core.engine import (
 
 
 class TestIsTransmissionInstalled:
+    """Verify is_transmission_installed() by mocking shutil.which."""
+
     def test_installed(self) -> None:
         with patch("torrentor.core.engine.shutil.which", return_value="/usr/bin/transmission-cli"):
             assert is_transmission_installed() is True
@@ -19,6 +23,8 @@ class TestIsTransmissionInstalled:
 
 
 class TestParseProgress:
+    """Verify that parse_progress() extracts data from real-looking transmission-cli output lines."""
+
     def test_full_progress_line(self) -> None:
         line = "Progress: 45.2%, dl from 3 of 8 peers (1.2 MB/s), ul to 2 (200 kB/s) [T R]"
         result = parse_progress(line)
@@ -47,6 +53,8 @@ class TestParseProgress:
 
 
 class TestBuildCommand:
+    """Verify that build_command() constructs the right CLI arguments for different configs."""
+
     def test_default_config(self) -> None:
         engine = TransmissionEngine(TorrentorConfig())
         cmd = engine.build_command("magnet:?xt=abc", "/tmp/dl", "/tmp/finish.sh")

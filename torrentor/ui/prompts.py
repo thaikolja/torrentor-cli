@@ -1,10 +1,14 @@
+"""InquirerPy interactive prompts: menus, text inputs, confirmations, and settings editors."""
+
 from InquirerPy import inquirer
 from InquirerPy.separator import Separator
 
 from torrentor.ui.theme import INQUIRER_STYLE
 
 
+# The top-level menu when you run `torrentor` without arguments
 def main_menu() -> str:
+    """Show the main navigation menu and return the selected action ('add', 'settings', 'quit')."""
     return inquirer.select(
         message="What would you like to do?",
         choices=[
@@ -21,7 +25,9 @@ def main_menu() -> str:
     ).execute()
 
 
+# Ask whether they want to add via magnet or .torrent file
 def add_torrent_menu() -> str:
+    """Prompt the user to choose between magnet link, .torrent file, or go back."""
     return inquirer.select(
         message="How would you like to add a torrent?",
         choices=[
@@ -37,7 +43,9 @@ def add_torrent_menu() -> str:
     ).execute()
 
 
+# Text input for a magnet URI with basic validation
 def magnet_input() -> str:
+    """Ask the user to paste a magnet link, validated to start with 'magnet:'."""
     return inquirer.text(
         message="Paste magnet link:",
         style=INQUIRER_STYLE,
@@ -48,7 +56,9 @@ def magnet_input() -> str:
     ).execute()
 
 
+# File browser / path input for .torrent files
 def file_input() -> str:
+    """Ask the user to pick a .torrent file, validated to end with '.torrent'."""
     return inquirer.filepath(
         message="Path to .torrent file:",
         style=INQUIRER_STYLE,
@@ -59,7 +69,9 @@ def file_input() -> str:
     ).execute()
 
 
+# Yes / No confirmation before starting a download
 def confirm_download() -> bool:
+    """Ask the user to confirm they want to start the download."""
     return inquirer.confirm(
         message="Start download?",
         default=True,
@@ -69,7 +81,9 @@ def confirm_download() -> bool:
     ).execute()
 
 
+# Settings menu — choose which config key to edit
 def settings_menu() -> str:
+    """Let the user pick which setting to change, or go back."""
     return inquirer.select(
         message="Which setting to change?",
         choices=[
@@ -88,7 +102,9 @@ def settings_menu() -> str:
     ).execute()
 
 
+# Simple text input for the output directory path
 def directory_input(current: str) -> str:
+    """Prompt for a directory path, pre-filled with the current value."""
     return inquirer.text(
         message="Output directory:",
         default=current,
@@ -98,7 +114,9 @@ def directory_input(current: str) -> str:
     ).execute()
 
 
+# Number input for speed limits — leave empty for "unlimited"
 def speed_limit_input(label: str, current: int | None) -> int | None:
+    """Ask for a speed limit in kB/s. Empty input means unlimited (returns None)."""
     default = str(current) if current is not None else ""
     value = inquirer.text(
         message=f"{label} (kB/s, empty for unlimited):",
@@ -112,7 +130,9 @@ def speed_limit_input(label: str, current: int | None) -> int | None:
     return int(value) if value.strip() else None
 
 
+# Number input for port number with range validation
 def port_input(current: int) -> int:
+    """Ask for a port number (1-65535), pre-filled with the current value."""
     value = inquirer.text(
         message="Port:",
         default=str(current),
@@ -125,7 +145,9 @@ def port_input(current: int) -> int:
     return int(value)
 
 
+# Dropdown to pick encryption mode
 def encryption_select(current: str) -> str:
+    """Let the user pick between required, preferred, or tolerated encryption."""
     choices = ["required", "preferred", "tolerated"]
     default = current if current in choices else "preferred"
     return inquirer.select(

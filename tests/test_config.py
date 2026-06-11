@@ -1,3 +1,5 @@
+"""Tests for config persistence: dataclass defaults, load/save roundtrip, corrupted data handling."""
+
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -6,6 +8,8 @@ from torrentor.core.config import TorrentorConfig, load_config, save_config
 
 
 class TestTorrentorConfig:
+    """Verify the TorrentorConfig dataclass defaults and serialization."""
+
     def test_defaults(self) -> None:
         config = TorrentorConfig()
         assert config.output_dir == str(Path.home() / "Downloads")
@@ -34,6 +38,8 @@ class TestTorrentorConfig:
 
 
 class TestLoadSaveConfig:
+    """Verify reading and writing the config file, including edge cases."""
+
     def test_save_and_load(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.json"
         config_dir = tmp_path

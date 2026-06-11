@@ -1,9 +1,13 @@
+"""Tests for source validators: magnets links and .torrent file detection."""
+
 from pathlib import Path
 
 from torrentor.core.validators import is_magnet_link, is_torrent_file, validate_source
 
 
 class TestIsMagnetLink:
+    """Check that is_magnet_link() correctly identifies magnet URIs."""
+
     def test_valid_magnet(self) -> None:
         assert is_magnet_link("magnet:?xt=urn:btih:abc123") is True
 
@@ -21,6 +25,8 @@ class TestIsMagnetLink:
 
 
 class TestIsTorrentFile:
+    """Check that is_torrent_file() validates file existence and extension."""
+
     def test_existing_torrent_file(self, tmp_path: Path) -> None:
         f = tmp_path / "test.torrent"
         f.write_bytes(b"data")
@@ -36,6 +42,8 @@ class TestIsTorrentFile:
 
 
 class TestValidateSource:
+    """Check that validate_source() returns the right label or None."""
+
     def test_magnet_source(self) -> None:
         assert validate_source("magnet:?xt=urn:btih:abc") == "magnet"
 

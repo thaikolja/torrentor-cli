@@ -1,3 +1,5 @@
+"""Smoke tests for the CLI: help output, version flag, config subcommands, and source validation."""
+
 from typer.testing import CliRunner
 
 from torrentor import __version__
@@ -7,6 +9,8 @@ runner = CliRunner()
 
 
 class TestVersion:
+    """Check that --version and -V print the version string."""
+
     def test_version_flag(self) -> None:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
@@ -19,6 +23,8 @@ class TestVersion:
 
 
 class TestHelp:
+    """Check that --help lists all expected commands and flags."""
+
     def test_main_help(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
@@ -42,6 +48,8 @@ class TestHelp:
 
 
 class TestConfigCommands:
+    """Check that the config subcommands work as expected."""
+
     def test_config_path(self) -> None:
         result = runner.invoke(app, ["config", "path"])
         assert result.exit_code == 0
@@ -63,6 +71,8 @@ class TestConfigCommands:
 
 
 class TestAddValidation:
+    """Check that invalid sources are rejected with a non-zero exit code."""
+
     def test_add_invalid_source(self) -> None:
         result = runner.invoke(app, ["add", "not-a-valid-source"])
         assert result.exit_code == 1

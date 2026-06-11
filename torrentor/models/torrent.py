@@ -1,8 +1,12 @@
+"""Dataclass that represents a single torrent during and after download."""
+
 from dataclasses import dataclass
 
 
 @dataclass
 class TorrentInfo:
+    """Holds all the runtime info about a torrent: name, speeds, peers, status, etc."""
+
     name: str
     source: str
     source_type: str

@@ -1,3 +1,5 @@
+"""Typer CLI app — commands: add, config (set/reset/path), demo, and an interactive mode."""
+
 import time
 from pathlib import Path
 from urllib.parse import unquote_plus
@@ -36,6 +38,7 @@ from torrentor.ui.prompts import (
 )
 from torrentor.ui.theme import ACCENT, CYAN, DIM, MAGENTA, console
 
+# Main Typer app and its nested config sub-app
 app = typer.Typer(
     name="torrentor",
     help="A beautiful CLI torrent client powered by transmission-cli.",
@@ -51,13 +54,17 @@ config_app = typer.Typer(
 app.add_typer(config_app, name="config")
 
 
+# When the user passes --version / -V, print the version and bail
 def _version_callback(value: bool) -> None:
+    """Print the current version and exit."""
     if value:
         console.print(f"[bold {CYAN}]torrentor[/] [dim]v{__version__}[/]")
         raise typer.Exit()
 
 
+# Guard that checks transmission-cli is on PATH before doing anything real
 def _require_transmission() -> None:
+    """Exit with a styled error if transmission-cli is not installed."""
     if not is_transmission_installed():
         console.print()
         dependency_error()
@@ -65,14 +72,18 @@ def _require_transmission() -> None:
         raise typer.Exit(1)
 
 
+# Extract a human-readable name from a magnet link or file path
 def _extract_name(source: str) -> str:
+    """Pull the torrent name from a magnet's dn= parameter or the filename."""
     if "&dn=" in source:
         raw = source.split("&dn=")[-1].split("&")[0]
         return unquote_plus(raw)
     return source.rsplit("/", maxsplit=1)[-1]
 
 
+# The core download-and-postprocess pipeline used by both interactive and CLI modes
 def _run_download(source: str, config: TorrentorConfig) -> None:
+    """Validate source, show details, run engine with progress, then zip and move the result."""
     name = _extract_name(source)
     source_type = validate_source(source)
 
@@ -84,10 +95,12 @@ def _run_download(source: str, config: TorrentorConfig) -> None:
     torrent_details_panel(name, source_type, source, config.output_dir)
     console.print()
 
+    # Set up the engine and a progress bar
     engine = TransmissionEngine(config)
     progress = create_download_progress()
     task_id = None
 
+    # This callback gets called by the engine on every progress update from transmission-cli
     def on_progress(info: dict) -> None:
         nonlocal task_id
         pct = info.get("progress", 0.0)
@@ -109,6 +122,7 @@ def _run_download(source: str, config: TorrentorConfig) -> None:
                 peers=info.get("peers", 0),
             )
 
+    # Run the download inside the progress context manager
     try:
         with progress:
             download_dir = engine.download(source, on_progress=on_progress)
@@ -124,6 +138,7 @@ def _run_download(source: str, config: TorrentorConfig) -> None:
 
     console.print()
 
+    # Post-process: zip it up, show the result, clean up the temp dir
     try:
         zip_path = zip_and_move(download_dir, Path(config.output_dir))
         zip_size = format_size(zip_path.stat().st_size)
@@ -137,6 +152,7 @@ def _run_download(source: str, config: TorrentorConfig) -> None:
     console.print()
 
 
+# ── Default callback: when no subcommand is given, launch interactive mode ──
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -153,7 +169,9 @@ def main(
         _interactive_mode()
 
 
+# ── Interactive loop ──
 def _interactive_mode() -> None:
+    """Clear screen, show banner, and loop through the main menu until the user quits."""
     _require_transmission()
     console.clear()
     show_banner()
@@ -173,7 +191,9 @@ def _interactive_mode() -> None:
             _quit()
 
 
+# Interactive "add a torrent" flow
 def _interactive_add() -> None:
+    """Walk the user through choosing source type, entering the source, confirming, and downloading."""
     console.print()
     try:
         method = add_torrent_menu()
@@ -212,7 +232,9 @@ def _interactive_add() -> None:
     _run_download(source, config)
 
 
+# Interactive settings editor — loop until the user picks "back"
 def _interactive_settings() -> None:
+    """Show current config, let the user pick a setting to change, save on each change."""
     config = load_config()
 
     while True:
@@ -247,12 +269,15 @@ def _interactive_settings() -> None:
             continue
 
 
+# Farewell message
 def _quit() -> None:
+    """Print goodbye and exit."""
     console.print()
     console.print(f"[{DIM}]Goodbye![/]")
     raise typer.Exit()
 
 
+# ── CLI command: add ──
 @app.command()
 def add(
     source: str = typer.Argument(..., help="Magnet link or path to .torrent file."),
@@ -290,6 +315,7 @@ def add(
     _require_transmission()
     show_banner()
 
+    # Load config, then override with any CLI flag that was passed
     config = load_config()
 
     if output_dir:
@@ -307,6 +333,10 @@ def add(
     _run_download(source, config)
 
 
+# ── Config subcommands ──
+
+
+# `torrentor config` — show current settings
 @config_app.callback(invoke_without_command=True)
 def config_main(ctx: typer.Context) -> None:
     """Show current configuration."""
@@ -317,6 +347,7 @@ def config_main(ctx: typer.Context) -> None:
         console.print(f"\n  [{DIM}]Config file: {CONFIG_FILE}[/]\n")
 
 
+# `torrentor config set <key> <value>`
 @config_app.command("set")
 def config_set(
     key: str = typer.Argument(
@@ -350,6 +381,7 @@ def config_set(
     console.print()
 
 
+# `torrentor config reset`
 @config_app.command()
 def reset() -> None:
     """Reset configuration to defaults."""
@@ -359,12 +391,14 @@ def reset() -> None:
     console.print()
 
 
+# `torrentor config path`
 @config_app.command()
 def path() -> None:
     """Print the config file path."""
     console.print(str(CONFIG_FILE))
 
 
+# ── Demo command (no transmission-cli required) ──
 @app.command()
 def demo() -> None:
     """Showcase all UI elements with mock data."""
@@ -405,7 +439,9 @@ def demo() -> None:
     console.print()
 
 
+# Renders a mock menu as a Rich panel for the demo
 def _demo_menu() -> None:
+    """Draw a static mock of the interactive menu inside a panel."""
     choices = [
         (f"[bold {CYAN}]❯[/]", "[bold]  Add Torrent[/]"),
         ("  ", f"[{DIM}]  ─────────────────────[/]"),
@@ -429,7 +465,9 @@ def _demo_menu() -> None:
     console.print(panel)
 
 
+# Mock data for the demo's status-table step
 def _demo_status_table() -> None:
+    """Build a list of fake torrents and render them via status_table()."""
     mock_torrents = [
         {
             "name": "Ubuntu 24.04 LTS",

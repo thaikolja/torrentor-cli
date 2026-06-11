@@ -1,3 +1,5 @@
+"""Rich progress bars for real downloads and the interactive demo."""
+
 import time
 
 from rich.progress import (
@@ -11,7 +13,9 @@ from rich.progress import (
 from torrentor.ui.theme import CYAN, SUCCESS, console
 
 
+# Factory that builds a progress bar suited for a single real download
 def create_download_progress() -> Progress:
+    """Return a Progress instance with a spinner, name, bar, percentage, speeds and peer count."""
     return Progress(
         SpinnerColumn(style=CYAN),
         TextColumn("[bold]{task.description}[/]", justify="left"),
@@ -25,7 +29,9 @@ def create_download_progress() -> Progress:
     )
 
 
+# Same layout, separate factory — kept for the mock progress in the demo
 def create_progress() -> Progress:
+    """Return a Progress instance identical to create_download_progress (used by mock demo)."""
     return Progress(
         SpinnerColumn(style=CYAN),
         TextColumn("[bold]{task.description}[/]", justify="left"),
@@ -39,6 +45,7 @@ def create_progress() -> Progress:
     )
 
 
+# Fake torrents used by the demo command
 MOCK_TORRENTS = [
     {
         "name": "Ubuntu 24.04 LTS",
@@ -70,11 +77,14 @@ MOCK_TORRENTS = [
 ]
 
 
+# Animate mock progress bars for the demo command
 def show_mock_progress(duration: float = 4.0) -> None:
+    """Simulate downloading a few torrents with live-updating progress bars."""
     progress = create_progress()
 
     tasks = []
     with progress:
+        # Add one task per fake torrent, starting at whatever progress "start" says
         for t in MOCK_TORRENTS:
             task_id = progress.add_task(
                 t["name"],
@@ -86,6 +96,7 @@ def show_mock_progress(duration: float = 4.0) -> None:
             )
             tasks.append((task_id, t))
 
+        # Tick the progress forward in small increments for `duration` seconds
         steps = int(duration / 0.05)
         for _ in range(steps):
             for task_id, t in tasks:

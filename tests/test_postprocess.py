@@ -1,3 +1,5 @@
+"""Tests for post-processing: slugify, zip-and-move, cleanup, and format-size."""
+
 import zipfile
 from pathlib import Path
 
@@ -7,6 +9,8 @@ from torrentor.core.postprocess import cleanup, format_size, slugify, zip_and_mo
 
 
 class TestSlugify:
+    """Verify that slugify() converts human names into clean URL-safe slugs."""
+
     def test_basic(self) -> None:
         assert slugify("Hello World") == "hello-world"
 
@@ -39,6 +43,8 @@ class TestSlugify:
 
 
 class TestFormatSize:
+    """Make sure format_size() pretty-prints byte counts correctly."""
+
     def test_bytes(self) -> None:
         assert format_size(500) == "500 B"
 
@@ -59,6 +65,8 @@ class TestFormatSize:
 
 
 class TestZipAndMove:
+    """End-to-end tests for zipping downloaded content and placing it in the output dir."""
+
     def test_single_file(self, tmp_path: Path) -> None:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
@@ -126,6 +134,8 @@ class TestZipAndMove:
 
 
 class TestCleanup:
+    """Verify cleanup() removes temp directories without errors."""
+
     def test_removes_directory(self, tmp_path: Path) -> None:
         target = tmp_path / "to_remove"
         target.mkdir()
