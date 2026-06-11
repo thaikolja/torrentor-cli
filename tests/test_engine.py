@@ -23,7 +23,7 @@ class TestIsTransmissionInstalled:
 
 
 class TestParseProgress:
-    """Verify that parse_progress() extracts data from real-looking transmission-cli output lines."""
+    """Verify that parse_progress() extracts data from transmission-cli output lines."""
 
     def test_full_progress_line(self) -> None:
         line = "Progress: 45.2%, dl from 3 of 8 peers (1.2 MB/s), ul to 2 (200 kB/s) [T R]"
@@ -97,3 +97,29 @@ class TestBuildCommand:
         assert "-p" in cmd
         idx = cmd.index("-p")
         assert cmd[idx + 1] == "9999"
+
+    def test_in_order_flag(self) -> None:
+        config = TorrentorConfig(in_order=True)
+        engine = TransmissionEngine(config)
+        cmd = engine.build_command("source", "/tmp/dl", "/tmp/f.sh")
+        assert "-seq" in cmd
+
+    def test_check_flag(self) -> None:
+        config = TorrentorConfig(check=True)
+        engine = TransmissionEngine(config)
+        cmd = engine.build_command("source", "/tmp/dl", "/tmp/f.sh")
+        assert "-v" in cmd
+
+    def test_blocklist_flag(self) -> None:
+        config = TorrentorConfig(blocklist=True)
+        engine = TransmissionEngine(config)
+        cmd = engine.build_command("source", "/tmp/dl", "/tmp/f.sh")
+        assert "-b" in cmd
+
+    def test_no_advanced_flags_by_default(self) -> None:
+        config = TorrentorConfig()
+        engine = TransmissionEngine(config)
+        cmd = engine.build_command("source", "/tmp/dl", "/tmp/f.sh")
+        assert "-seq" not in cmd
+        assert "-v" not in cmd
+        assert "-b" not in cmd

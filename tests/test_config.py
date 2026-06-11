@@ -17,6 +17,11 @@ class TestTorrentorConfig:
         assert config.upload_limit is None
         assert config.port == 51413
         assert config.encryption == "preferred"
+        assert config.seed is False
+        assert config.timeout is None
+        assert config.in_order is False
+        assert config.check is False
+        assert config.blocklist is False
 
     def test_to_dict(self) -> None:
         config = TorrentorConfig(output_dir="/tmp/test", port=9999)
@@ -24,6 +29,8 @@ class TestTorrentorConfig:
         assert d["output_dir"] == "/tmp/test"
         assert d["port"] == 9999
         assert d["download_limit"] is None
+        assert d["in_order"] is False
+        assert d["check"] is False
 
     def test_custom_values(self) -> None:
         config = TorrentorConfig(
@@ -32,9 +39,19 @@ class TestTorrentorConfig:
             upload_limit=500,
             port=12345,
             encryption="required",
+            seed=True,
+            timeout=300,
+            in_order=True,
+            check=True,
+            blocklist=True,
         )
         assert config.download_limit == 1000
         assert config.encryption == "required"
+        assert config.seed is True
+        assert config.timeout == 300
+        assert config.in_order is True
+        assert config.check is True
+        assert config.blocklist is True
 
 
 class TestLoadSaveConfig:
@@ -97,3 +114,20 @@ class TestLoadSaveConfig:
             config = load_config()
             assert config.output_dir == "/custom"
             assert config.port == 8888
+
+    def test_round_trip_with_new_fields(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.json"
+        config_dir = tmp_path
+
+        with (
+            patch("torrentor.core.config.CONFIG_FILE", config_file),
+            patch("torrentor.core.config.CONFIG_DIR", config_dir),
+        ):
+            original = TorrentorConfig(seed=True, in_order=True, check=True, timeout=600)
+            save_config(original)
+
+            loaded = load_config()
+            assert loaded.seed is True
+            assert loaded.in_order is True
+            assert loaded.check is True
+            assert loaded.timeout == 600

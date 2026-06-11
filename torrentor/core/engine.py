@@ -1,8 +1,7 @@
-"""Runs transmission-cli as a subprocess, monitors progress, and stops seeding when done."""
+"""Runs transmission-cli as a subprocess, monitors progress, and stops when done. Works on macOS, Linux, and Windows."""
 
 import re
 import shutil
-import signal
 import stat
 import subprocess
 import tempfile
@@ -108,9 +107,9 @@ class TransmissionEngine:
         cmd.extend(["-p", str(self.config.port)])
 
         # Optional flags based on config
-        if self.config.sequential:
+        if self.config.in_order:
             cmd.append("-seq")
-        if self.config.verify:
+        if self.config.check:
             cmd.append("-v")
         if self.config.blocklist:
             cmd.append("-b")
@@ -203,16 +202,18 @@ class TransmissionEngine:
 
         return download_dir
 
-    # Send SIGTERM to the subprocess, kill if it doesn't respond
+    # Cross-platform way to stop the subprocess gracefully, then forcefully if needed
     def _stop_process(self) -> None:
-        """Gracefully stop the transmission-cli process (SIGTERM, then SIGKILL if stubborn)."""
+        """Stop the transmission-cli process. Uses terminate() then kill() — works on all OSes."""
         if self._process is None:
             return
         try:
-            self._process.send_signal(signal.SIGTERM)
+            # terminate() sends SIGTERM on Unix, TerminateProcess on Windows
+            self._process.terminate()
             self._process.wait(timeout=10)
         except (ProcessLookupError, subprocess.TimeoutExpired):
             try:
+                # kill() sends SIGKILL on Unix, TerminateProcess on Windows
                 self._process.kill()
                 self._process.wait(timeout=5)
             except (ProcessLookupError, OSError):

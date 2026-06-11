@@ -1,11 +1,17 @@
-"""Tests for post-processing: slugify, zip-and-move, cleanup, and format-size."""
+"""Tests for post-processing: slugify, predict_zip_filename, zip-and-move, cleanup, and format-size."""
 
 import zipfile
 from pathlib import Path
 
 import pytest
 
-from torrentor.core.postprocess import cleanup, format_size, slugify, zip_and_move
+from torrentor.core.postprocess import (
+    cleanup,
+    format_size,
+    predict_zip_filename,
+    slugify,
+    zip_and_move,
+)
 
 
 class TestSlugify:
@@ -40,6 +46,19 @@ class TestSlugify:
 
     def test_leading_trailing_hyphens(self) -> None:
         assert slugify("--hello--") == "hello"
+
+
+class TestPredictZipFilename:
+    """Verify that predict_zip_filename returns the right .zip name."""
+
+    def test_basic(self) -> None:
+        assert predict_zip_filename("My Movie") == "my-movie.zip"
+
+    def test_special_chars(self) -> None:
+        assert predict_zip_filename("Ubuntu 24.04 LTS!") == "ubuntu-2404-lts.zip"
+
+    def test_empty(self) -> None:
+        assert predict_zip_filename("") == "download.zip"
 
 
 class TestFormatSize:

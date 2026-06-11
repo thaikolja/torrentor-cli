@@ -1,4 +1,4 @@
-"""InquirerPy interactive prompts: menus, text inputs, confirmations, and settings editors."""
+"""InquirerPy interactive prompts: menus, text inputs, and settings editors. Written in plain English."""
 
 from InquirerPy import inquirer
 from InquirerPy.separator import Separator
@@ -8,11 +8,11 @@ from torrentor.ui.theme import INQUIRER_STYLE
 
 # The top-level menu when you run `torrentor` without arguments
 def main_menu() -> str:
-    """Show the main navigation menu and return the selected action ('add', 'settings', 'quit')."""
+    """Show the main menu and return the selected action."""
     return inquirer.select(
         message="What would you like to do?",
         choices=[
-            {"name": "  Add Torrent", "value": "add"},
+            {"name": "  Download a torrent", "value": "add"},
             Separator(),
             {"name": "  Settings", "value": "settings"},
             {"name": "  Quit", "value": "quit"},
@@ -21,20 +21,20 @@ def main_menu() -> str:
         pointer="❯",
         qmark="",
         amark="",
-        instruction="(↑/↓ to move, Enter to select)",
+        instruction="(use arrow keys, then press Enter)",
     ).execute()
 
 
-# Ask whether they want to add via magnet or .torrent file
+# Ask how the user wants to provide the torrent
 def add_torrent_menu() -> str:
-    """Prompt the user to choose between magnet link, .torrent file, or go back."""
+    """Ask whether to use a magnet link or a .torrent file."""
     return inquirer.select(
-        message="How would you like to add a torrent?",
+        message="How do you want to add it?",
         choices=[
-            {"name": "  Magnet Link", "value": "magnet"},
-            {"name": "  Torrent File (.torrent)", "value": "file"},
+            {"name": "  Paste a magnet link", "value": "magnet"},
+            {"name": "  Pick a .torrent file", "value": "file"},
             Separator(),
-            {"name": "  Back", "value": "back"},
+            {"name": "  Go back", "value": "back"},
         ],
         style=INQUIRER_STYLE,
         pointer="❯",
@@ -45,33 +45,33 @@ def add_torrent_menu() -> str:
 
 # Text input for a magnet URI with basic validation
 def magnet_input() -> str:
-    """Ask the user to paste a magnet link, validated to start with 'magnet:'."""
+    """Ask the user to paste a magnet link."""
     return inquirer.text(
-        message="Paste magnet link:",
+        message="Paste your magnet link here:",
         style=INQUIRER_STYLE,
         qmark="",
         amark="",
-        validate=lambda v: v.startswith("magnet:") or "Must be a valid magnet link",
-        invalid_message="Must start with magnet:",
+        validate=lambda v: v.startswith("magnet:") or "That doesn't look like a magnet link",
+        invalid_message="A magnet link starts with magnet:",
     ).execute()
 
 
 # File browser / path input for .torrent files
 def file_input() -> str:
-    """Ask the user to pick a .torrent file, validated to end with '.torrent'."""
+    """Ask the user to provide a path to a .torrent file."""
     return inquirer.filepath(
-        message="Path to .torrent file:",
+        message="Path to your .torrent file:",
         style=INQUIRER_STYLE,
         qmark="",
         amark="",
-        validate=lambda v: v.endswith(".torrent") or "Must be a .torrent file",
-        invalid_message="Must be a .torrent file",
+        validate=lambda v: v.endswith(".torrent") or "That's not a .torrent file",
+        invalid_message="The file must end with .torrent",
     ).execute()
 
 
 # Shown after a download is interrupted or fails — retry/cancel with cache control
 def post_download_menu() -> str:
-    """Ask the user what to do next: retry (fresh or from cache), cancel (keep or delete cache)."""
+    """Ask the user what to do next after a failed or cancelled download."""
     return inquirer.select(
         message="What would you like to do?",
         choices=[
@@ -88,19 +88,19 @@ def post_download_menu() -> str:
     ).execute()
 
 
-# Settings menu — choose which config key to edit
+# Settings menu — choose which setting to change
 def settings_menu() -> str:
     """Let the user pick which setting to change, or go back."""
     return inquirer.select(
-        message="Which setting to change?",
+        message="Which setting do you want to change?",
         choices=[
-            {"name": "  Output Directory", "value": "output_dir"},
-            {"name": "  Download Speed Limit", "value": "download_limit"},
-            {"name": "  Upload Speed Limit", "value": "upload_limit"},
-            {"name": "  Port", "value": "port"},
-            {"name": "  Encryption", "value": "encryption"},
+            {"name": "  Where to save files", "value": "output_dir"},
+            {"name": "  Download speed limit", "value": "download_limit"},
+            {"name": "  Upload speed limit", "value": "upload_limit"},
+            {"name": "  Network port", "value": "port"},
+            {"name": "  Connection privacy", "value": "encryption"},
             Separator(),
-            {"name": "  Back", "value": "back"},
+            {"name": "  Go back", "value": "back"},
         ],
         style=INQUIRER_STYLE,
         pointer="❯",
@@ -111,9 +111,9 @@ def settings_menu() -> str:
 
 # Simple text input for the output directory path
 def directory_input(current: str) -> str:
-    """Prompt for a directory path, pre-filled with the current value."""
+    """Ask where to save downloaded files."""
     return inquirer.text(
-        message="Output directory:",
+        message="Save files to:",
         default=current,
         style=INQUIRER_STYLE,
         qmark="",
@@ -121,44 +121,44 @@ def directory_input(current: str) -> str:
     ).execute()
 
 
-# Number input for speed limits — leave empty for "unlimited"
+# Number input for speed limits — leave empty for "no limit"
 def speed_limit_input(label: str, current: int | None) -> int | None:
-    """Ask for a speed limit in kB/s. Empty input means unlimited (returns None)."""
+    """Ask for a speed limit. Leave empty for no limit."""
     default = str(current) if current is not None else ""
     value = inquirer.text(
-        message=f"{label} (kB/s, empty for unlimited):",
+        message=f"{label} (kB/s, leave empty for no limit):",
         default=default,
         style=INQUIRER_STYLE,
         qmark="",
         amark="",
-        validate=lambda v: v == "" or v.isdigit() or "Must be a number or empty",
-        invalid_message="Enter a number or leave empty for unlimited",
+        validate=lambda v: v == "" or v.isdigit() or "Please enter a number or leave it empty",
+        invalid_message="Enter a number or leave empty for no limit",
     ).execute()
     return int(value) if value.strip() else None
 
 
 # Number input for port number with range validation
 def port_input(current: int) -> int:
-    """Ask for a port number (1-65535), pre-filled with the current value."""
+    """Ask for a network port number."""
     value = inquirer.text(
-        message="Port:",
+        message="Network port (1-65535):",
         default=str(current),
         style=INQUIRER_STYLE,
         qmark="",
         amark="",
-        validate=lambda v: (v.isdigit() and 1 <= int(v) <= 65535) or "Must be 1-65535",
-        invalid_message="Enter a valid port (1-65535)",
+        validate=lambda v: (v.isdigit() and 1 <= int(v) <= 65535) or "Must be between 1 and 65535",
+        invalid_message="Enter a number between 1 and 65535",
     ).execute()
     return int(value)
 
 
 # Dropdown to pick encryption mode
 def encryption_select(current: str) -> str:
-    """Let the user pick between required, preferred, or tolerated encryption."""
+    """Let the user pick the connection privacy level."""
     choices = ["required", "preferred", "tolerated"]
     default = current if current in choices else "preferred"
     return inquirer.select(
-        message="Encryption mode:",
+        message="Connection privacy:",
         choices=choices,
         default=default,
         style=INQUIRER_STYLE,

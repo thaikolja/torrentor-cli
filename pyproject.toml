@@ -1,7 +1,7 @@
 [project]
 name = "torrentor"
 version = "1.0.0"
-description = "A beautiful CLI torrent client powered by transmission-cli."
+description = "Download torrents from the command line — easy, fast, cross-platform."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

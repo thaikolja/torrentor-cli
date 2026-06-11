@@ -1,9 +1,11 @@
-# Torrentor CLI
+[![PyPI Version](https://img.shields.io/pypi/v/torrentor?style=rounded)](https://pypi.org/project/torrentor/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/torrentor?style=rounded&logo=python&logoColor=white)](https://pypi.org/project/torrentor/)
+[![License](https://img.shields.io/github/license/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/blob/main/LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=rounded)](https://github.com/astral-sh/ruff)
 
-[![PyPI Version](https://img.shields.io/pypi/v/torrentor?style=rounded)](https://pypi.org/project/torrentor/) [![Python Versions](https://img.shields.io/pypi/pyversions/torrentor?style=rounded&logo=python&logoColor=white)](https://pypi.org/project/torrentor/) [![License](https://img.shields.io/github/license/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/blob/main/LICENSE) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=rounded)](https://github.com/astral-sh/ruff)
+# torrentor
 
-A beautiful CLI torrent client powered by `transmission-cli`.
-Download torrents, auto-stop seeding, and get a neatly zipped + slugified output file – all from your terminal.
+Download [torrent](https://en.wikipedia.org/wiki/BitTorrent) files from your terminal: no complicated setup, works on **macOS**, **Linux**, and **Windows**.
 
 ```
 ╺┳╸┏━┓┏━┓┏━┓┏━╸┏┓╻╺┳╸┏━┓┏━┓
@@ -11,121 +13,270 @@ Download torrents, auto-stop seeding, and get a neatly zipped + slugified output
  ╹ ┗━┛╹┗╸╹┗╸┗━╸╹ ╹ ╹ ┗━┛╹┗╸
 ```
 
-## Features
+## What it does
 
-- **Two modes** — interactive (guided menus) or direct (flags & args)
-- **Magnet links & .torrent files** — both supported
-- **Auto-stop seeding** — process terminates once download completes
-- **Post-processing** — downloaded files are zipped (light compression) with slugified filenames
-- **Persistent config** — output directory, speed limits, port, encryption — all remembered
-- **Beautiful UI** — Rich panels, progress bars, InquirerPy interactive prompts
+1. You give it a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme) or a [`.torrent` file](https://en.wikipedia.org/wiki/Torrent_file)
+2. It downloads the file using [`transmission-cli`](https://transmissionbt.com/) in the background
+3. When the download is done, it automatically stops [seeding](https://en.wikipedia.org/wiki/Seeding_(computing)) (sharing)
+4. It packs everything into a `.zip` file with a clean, [URL-friendly filename](https://en.wikipedia.org/wiki/Clean_URL#Slug)
+5. The `.zip` is saved to your chosen folder, and the temp files are cleaned up
 
-## Requirements
+## What you need
 
-- Python 3.10+
-- [`transmission-cli`](https://transmissionbt.com/download)
+- **Python 3.10 or newer**: [download here](https://www.python.org/downloads/) if you don't have it
+- **transmission-cli**: this is the download engine that runs in the background
+
+### Installing transmission-cli
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+Using [Homebrew](https://brew.sh/) (recommended):
 
 ```bash
-# macOS
+# Install transmission-cli on macOS using Homebrew
 brew install transmission-cli
+```
 
+Using [MacPorts](https://www.macports.org/):
+
+```bash
+# Install transmission on macOS using MacPorts
+sudo port install transmission
+```
+
+</details>
+
+<details>
+<summary><strong>Linux</strong></summary>
+
+```bash
 # Debian / Ubuntu
 sudo apt install transmission-cli
+
+# Fedora / RHEL
+sudo dnf install transmission-cli
 
 # Arch Linux
 sudo pacman -S transmission-cli
 ```
 
-## Installation
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+Using [Chocolatey](https://chocolatey.org/):
+
+```powershell
+# Install transmission-cli on Windows using Chocolatey
+choco install transmission-cli
+```
+
+Using [Scoop](https://scoop.sh/):
+
+```powershell
+# Install transmission on Windows using Scoop
+scoop install transmission
+```
+
+Or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) and follow the Linux instructions above.
+
+</details>
+
+## Installing torrentor
 
 ```bash
-git clone https://github.com/your-username/torrentor-cli.git
+# Clone the repository
+git clone https://github.com/thaikolja/torrentor-cli.git
+
+# Enter the project folder
 cd torrentor-cli
+
+# Create a virtual environment (isolated Python setup)
 python -m venv .venv
+
+# Activate it (on Windows use: .venv\Scripts\activate)
 source .venv/bin/activate
+
+# Install torrentor and all its dependencies
 pip install -e .
 ```
 
-## Usage
+After that, the `torrentor` command is available in your terminal.
 
-### Interactive Mode
+## How to use it
+
+There are two ways: **interactive mode** (guided step-by-step) or **direct mode** (one command).
+
+### Interactive mode (easiest)
+
+Just type:
 
 ```bash
+# Start the interactive menu
 torrentor
 ```
 
-Launches a guided menu to add torrents, view settings, and more.
+You'll see a menu where you can pick what to do: download a torrent, change your settings, or quit. Everything is guided.
 
-### Direct Mode
+### Direct mode (one command)
+
+If you already have a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), paste it directly:
 
 ```bash
-# Add via magnet link
+# Download a torrent from a magnet link
 torrentor add "magnet:?xt=urn:btih:..."
-
-# Add via .torrent file
-torrentor add ./ubuntu.torrent
-
-# With options
-torrentor add "magnet:..." -o ~/Movies -l 5000
-
-# Remove speed limits for this download
-torrentor add "magnet:..." --no-limit
 ```
 
-### Configuration
+Or point to a `.torrent` file on your computer:
 
 ```bash
-# View current config
+# Download a torrent from a .torrent file
+torrentor add ./my-file.torrent
+```
+
+### Options you can add
+
+You can add these after the `add` command to change how the download works:
+
+| Flag              | Short | What it does                                                        |
+| ----------------- | ----- | ------------------------------------------------------------------- |
+| `--save-to`       | `-o`  | Choose where to save the file (default: your Downloads folder)      |
+| `--max-download`  | `-l`  | Limit download speed in kB/s (e.g. `-l 5000` for 5 MB/s)           |
+| `--max-upload`    | `-u`  | Limit upload speed in kB/s                                         |
+| `--no-limit`      | `-n`  | Remove all speed limits                                             |
+| `--timeout`       | `-t`  | Stop the download after this many seconds                           |
+
+**Example** - download a torrent, save it to `~/Movies`, and limit speed to 5 MB/s:
+
+```bash
+# Download with custom save location and speed limit
+torrentor add "magnet:?xt=urn:btih:..." --save-to ~/Movies --max-download 5000
+```
+
+### Advanced options
+
+These are for users who know what they're doing. You probably won't need them.
+
+| Flag              | Short | What it does                                                                              |
+| ----------------- | ----- | ----------------------------------------------------------------------------------------- |
+| `--seed`          | `-s`  | Keep [sharing](https://en.wikipedia.org/wiki/Seeding_(computing)) after the download ends |
+| `--in-order`      | `-q`  | Download from start to finish (useful for previewing large files)                         |
+| `--check`         | `-y`  | Double-check the file for errors after downloading                                        |
+| `--port`          | `-p`  | Set the [network port](https://en.wikipedia.org/wiki/Port_(computer_networking)) for peers |
+| `--encryption`    | `-e`  | Set [connection privacy](https://en.wikipedia.org/wiki/Transport_Layer_Security): `required`, `preferred`, or `tolerated` |
+| `--blocklist`     | `-b`  | Block known bad peers from connecting to you                                              |
+
+### Managing your settings
+
+Your settings are remembered between sessions. You can view and change them:
+
+```bash
+# See your current settings
 torrentor config
 
-# Change output directory
+# Change where files are saved
 torrentor config set output_dir ~/Movies
 
-# Set download speed limit (kB/s)
+# Limit download speed to 5 MB/s
 torrentor config set download_limit 5000
 
-# Remove a limit
-torrentor config set upload_limit none
+# Remove a speed limit
+torrentor config set download_limit none
 
 # Reset everything to defaults
 torrentor config reset
 
-# Find your config file
+# Find where the settings file is stored on your computer
 torrentor config path
 ```
 
-Config is stored at `~/.config/torrentor/config.json`.
+Your settings are saved to a file on your computer:
 
-### UI Demo
+- **macOS / Linux**: `~/.config/torrentor/config.json`
+- **Windows**: `%APPDATA%\torrentor\config.json`
 
-```bash
-torrentor demo
+## What happens when you download
+
+Here's what torrentor does behind the scenes:
+
+```
+You paste a magnet link or pick a .torrent file
+        │
+        ▼
+transmission-cli downloads the file in the background
+        │  (you see a live progress bar with speed and peers)
+        ▼
+Download complete: sharing stops automatically
+        │
+        ▼
+The file is packed into a .zip
+        │  (the filename is cleaned up: "My Movie! (2024)" -> "my-movie-2024.zip")
+        ▼
+The .zip is moved to your chosen folder
+        │
+        ▼
+Temporary files are deleted
 ```
 
-Showcases all UI elements with mock data — great for seeing the interface without downloading anything.
+If something goes wrong (or you press `Ctrl+C`), you can **retry from where you left off**: your progress is saved.
 
-## How It Works
-
-1. You provide a magnet link or `.torrent` file
-2. `transmission-cli` downloads the torrent to a temp directory
-3. Once complete, seeding stops automatically
-4. Downloaded files are zipped with light compression
-5. The zip filename is slugified (`"My Movie! (2024)"` → `my-movie-2024.zip`)
-6. The `.zip` is moved to your configured output directory
-7. Temp files are cleaned up
-
-## Development
+## Full command reference
 
 ```bash
+# Start interactive mode
+torrentor
+
+# Download a torrent
+torrentor add <source>
+
+# Download with custom options
+torrentor add <source> [options]
+
+# View your settings
+torrentor config
+
+# Change a setting
+torrentor config set <key> <value>
+
+# Reset all settings
+torrentor config reset
+
+# Show where the settings file is stored
+torrentor config path
+
+# Show version
+torrentor -V
+
+# Show help
+torrentor -h
+```
+
+## For developers
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, code style, and testing.
+
+```bash
+# Install development dependencies
 pip install -e ".[dev]"
 
-ruff check .            # lint
-ruff format --check .   # format check
-mypy torrentor          # type check
-pytest                  # tests
-pytest --cov=torrentor  # tests with coverage
+# Run the linter
+ruff check .
+
+# Check formatting
+ruff format --check .
+
+# Run type checking
+mypy torrentor
+
+# Run tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=torrentor
 ```
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE): free to use, modify, and distribute.

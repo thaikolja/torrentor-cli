@@ -1,11 +1,19 @@
-"""Persistent config stored as JSON under ~/.config/torrentor/config.json."""
+"""Persistent config stored as JSON. Location is OS-aware: ~/.config on Unix, %APPDATA% on Windows."""
 
 import json
+import os
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+# Pick the right config home for each OS
+if sys.platform == "win32":
+    _config_home = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+else:
+    _config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+
 # Where we keep the config file
-CONFIG_DIR = Path.home() / ".config" / "torrentor"
+CONFIG_DIR = _config_home / "torrentor"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -21,15 +29,15 @@ class TorrentorConfig:
     # Peer port and encryption preference
     port: int = 51413
     encryption: str = "preferred"
-    # Whether to keep seeding after download completes
+    # Whether to keep sharing the file after download completes
     seed: bool = False
     # Download timeout in seconds — None means no timeout
     timeout: int | None = None
-    # Download pieces in order instead of rarest-first
-    sequential: bool = False
-    # Verify torrent data integrity after download
-    verify: bool = False
-    # Enable peer blocklist
+    # Download from beginning to end instead of jumping around
+    in_order: bool = False
+    # Double-check the file for errors after downloading
+    check: bool = False
+    # Block known bad peers from connecting
     blocklist: bool = False
 
     # Turn the dataclass into a plain dict for JSON serialization
@@ -40,7 +48,7 @@ class TorrentorConfig:
 
 # Read the config from disk, falling back to defaults if something's wrong
 def load_config() -> TorrentorConfig:
-    """Load config from ~/.config/torrentor/config.json. Creates it with defaults if missing or broken."""
+    """Load config from the config file. Creates it with defaults if missing or broken."""
     # No file yet? Write defaults and return those
     if not CONFIG_FILE.exists():
         config = TorrentorConfig()
@@ -63,7 +71,7 @@ def load_config() -> TorrentorConfig:
 
 # Write the config to disk as pretty-printed JSON
 def save_config(config: TorrentorConfig) -> None:
-    """Persist the given config to ~/.config/torrentor/config.json."""
+    """Persist the given config to the config file."""
     # Ensure the directory exists
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE.write_text(json.dumps(config.to_dict(), indent=2) + "\n")

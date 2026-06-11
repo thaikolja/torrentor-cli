@@ -1,8 +1,9 @@
-"""Terminal effects — confetti celebration when a download completes."""
+"""Terminal effects — confetti celebration when a download completes. Works on all OSes via Rich."""
 
 import random
 import time
 
+from rich.live import Live
 from rich.text import Text
 
 from torrentor.ui.theme import ACCENT, CYAN, MAGENTA, SUCCESS, WARNING, console
@@ -14,36 +15,35 @@ _PARTICLES = ["✦", "✧", "◆", "◇", "★", "☆", "✶", "✷", "❖", "�
 _COLORS = [CYAN, MAGENTA, SUCCESS, WARNING, ACCENT, "#ff87af", "#d7af5f", "#afafff"]
 
 
-# Build one line of random confetti characters with random colours
-def _confetti_line(width: int) -> Text:
-    """Generate a single line of randomly coloured confetti particles."""
-    line = Text()
-    for _ in range(width):
-        # Mix in gaps so it doesn't look too dense
-        if random.random() < 0.35:
-            char = random.choice(_PARTICLES)
-            color = random.choice(_COLORS)
-            line.append(f" {char}", style=f"bold {color}")
-        else:
-            line.append("  ")
-    return line
+# Build a block of random confetti characters with random colours
+def _confetti_block(width: int, lines: int) -> Text:
+    """Generate a block of randomly coloured confetti particles."""
+    block = Text()
+    for row in range(lines):
+        for _ in range(width):
+            # Mix in gaps so it doesn't look too dense
+            if random.random() < 0.35:
+                char = random.choice(_PARTICLES)
+                color = random.choice(_COLORS)
+                block.append(f" {char}", style=f"bold {color}")
+            else:
+                block.append("  ")
+        if row < lines - 1:
+            block.append("\n")
+    return block
 
 
-# Run the celebration animation
+# Run the celebration animation using Rich Live (cross-platform, no raw ANSI)
 def celebrate(frames: int = 4, lines: int = 3, delay: float = 0.15) -> None:
-    """Print a short burst of confetti across the terminal."""
+    """Print a short burst of confetti across the terminal. Uses Rich Live for cross-platform support."""
     width = min(console.width // 2, 40)
 
-    for _ in range(frames):
-        # Print a few lines of confetti
-        for _ in range(lines):
-            console.print(_confetti_line(width), justify="center")
-        time.sleep(delay)
-        # Move cursor back up to overwrite on next frame
-        console.file.write(f"\033[{lines}A")
-        console.file.flush()
+    # Animate several frames of confetti using Rich's Live display
+    with Live(console=console, refresh_per_second=10) as live:
+        for _ in range(frames):
+            live.update(_confetti_block(width, lines))
+            time.sleep(delay)
 
-    # Final frame stays on screen
-    for _ in range(lines):
-        console.print(_confetti_line(width), justify="center")
+    # Final static frame
+    console.print(_confetti_block(width, lines), justify="center")
     console.print()

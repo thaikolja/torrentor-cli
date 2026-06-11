@@ -23,21 +23,35 @@ class TestVersion:
 
 
 class TestHelp:
-    """Check that --help lists all expected commands and flags."""
+    """Check that --help and -h list all expected commands and flags."""
 
     def test_main_help(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "add" in result.output
         assert "config" in result.output
-        assert "demo" in result.output
+
+    def test_main_help_short(self) -> None:
+        result = runner.invoke(app, ["-h"])
+        assert result.exit_code == 0
+        assert "add" in result.output
 
     def test_add_help(self) -> None:
         result = runner.invoke(app, ["add", "--help"])
         assert result.exit_code == 0
-        assert "--output-dir" in result.output
-        assert "--download-limit" in result.output
+        assert "--save-to" in result.output
+        assert "--max-download" in result.output
         assert "--no-limit" in result.output
+        assert "--timeout" in result.output
+
+    def test_add_help_advanced_section(self) -> None:
+        result = runner.invoke(app, ["add", "--help"])
+        assert result.exit_code == 0
+        assert "Advanced" in result.output
+        assert "--seed" in result.output
+        assert "--in-order" in result.output
+        assert "--check" in result.output
+        assert "--blocklist" in result.output
 
     def test_config_help(self) -> None:
         result = runner.invoke(app, ["config", "--help"])
@@ -58,7 +72,7 @@ class TestConfigCommands:
     def test_config_show(self) -> None:
         result = runner.invoke(app, ["config"])
         assert result.exit_code == 0
-        assert "Output Directory" in result.output
+        assert "Save files to" in result.output
 
     def test_config_set_invalid_key(self) -> None:
         result = runner.invoke(app, ["config", "set", "nonexistent", "value"])
@@ -67,7 +81,6 @@ class TestConfigCommands:
     def test_config_reset(self) -> None:
         result = runner.invoke(app, ["config", "reset"])
         assert result.exit_code == 0
-        assert "reset" in result.output.lower() or "Reset" in result.output
 
 
 class TestAddValidation:

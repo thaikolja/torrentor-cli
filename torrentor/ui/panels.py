@@ -1,4 +1,4 @@
-"""Rich UI panels: info, error, success, dependency warnings, torrent details, settings, and active-downloads cards."""
+"""Rich UI panels: info, error, success, dependency warnings, torrent details, and settings."""
 
 import platform
 
@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, WARNING, console
+from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, console
 
 
 # Generic info panel — cyan border, bold title
@@ -34,17 +34,17 @@ def error_panel(message: str) -> None:
     console.print(panel)
 
 
-# Dependency-missing panel — platform-specific install instructions + download link
+# Dependency-missing panel — shows install commands for macOS, Linux, AND Windows
 def dependency_error() -> None:
     """Show a detailed panel when transmission-cli is not found, with per-OS install commands."""
     content = Text()
     content.append("  transmission-cli", style=f"bold {CYAN}")
     content.append(" was not found on your system.\n", style="default")
-    content.append("  Torrentor requires it to download torrents.\n\n", style="default")
+    content.append("  Torrentor needs it to download files.\n\n", style="default")
 
-    content.append("  Install it:\n\n", style=f"bold {ACCENT}")
+    content.append("  How to install:\n\n", style=f"bold {ACCENT}")
 
-    # Detect the OS and show the right command
+    # Detect the OS and show the right commands
     system = platform.system().lower()
     instructions = []
     if system == "darwin":
@@ -52,23 +52,31 @@ def dependency_error() -> None:
             ("macOS (Homebrew)", "brew install transmission-cli"),
             ("macOS (MacPorts)", "sudo port install transmission"),
         ]
-    elif system == "linux":
+    elif system == "win32" or system == "windows":
         instructions = [
-            ("Debian / Ubuntu", "sudo apt install transmission-cli"),
-            ("Fedora / RHEL", "sudo dnf install transmission-cli"),
-            ("Arch Linux", "sudo pacman -S transmission-cli"),
+            ("Windows (Chocolatey)", "choco install transmission-cli"),
+            ("Windows (Scoop)", "scoop install transmission"),
+            ("Windows (WSL)", "sudo apt install transmission-cli"),
         ]
     else:
         instructions = [
             ("Debian / Ubuntu", "sudo apt install transmission-cli"),
-            ("macOS (Homebrew)", "brew install transmission-cli"),
+            ("Fedora / RHEL", "sudo dnf install transmission-cli"),
+            ("Arch Linux", "sudo pacman -S transmission-cli"),
         ]
 
     for label, cmd in instructions:
         content.append(f"    {label}\n", style=DIM)
         content.append(f"    $ {cmd}\n\n", style=f"bold {SUCCESS}")
 
-    content.append("  Or download from:\n", style=f"bold {ACCENT}")
+    # Always show all OS options as fallback
+    if system == "darwin":
+        content.append(f"  [{DIM}]Linux: sudo apt install transmission-cli[/]\n", style=DIM)
+    elif system != "linux":
+        content.append(f"  [{DIM}]macOS: brew install transmission-cli[/]\n", style=DIM)
+        content.append(f"  [{DIM}]Linux: sudo apt install transmission-cli[/]\n", style=DIM)
+
+    content.append("\n  Or download from:\n", style=f"bold {ACCENT}")
     content.append("  https://transmissionbt.com/download\n", style=f"underline {CYAN}")
 
     panel = Panel(
@@ -85,7 +93,7 @@ def success_panel(message: str) -> None:
     """Show a green-bordered success panel."""
     panel = Panel(
         Align.left(Text(message, style=SUCCESS)),
-        title=f"[bold {SUCCESS}]Success[/]",
+        title=f"[bold {SUCCESS}]Done[/]",
         border_style=SUCCESS,
         padding=(1, 2),
     )
@@ -96,7 +104,7 @@ def success_panel(message: str) -> None:
 def download_complete_panel(zip_path: str, zip_size: str) -> None:
     """Show a completion panel with the final zip file path and total size."""
     content = Text()
-    content.append("  Download complete and packaged!\n\n", style="default")
+    content.append("  Your download is ready!\n\n", style="default")
     content.append("  File   ", style=f"bold {ACCENT}")
     content.append(f"{zip_path}\n", style="default")
     content.append("  Size   ", style=f"bold {ACCENT}")
@@ -104,7 +112,7 @@ def download_complete_panel(zip_path: str, zip_size: str) -> None:
 
     panel = Panel(
         content,
-        title=f"[bold {SUCCESS}]Complete[/]",
+        title=f"[bold {SUCCESS}]Download Complete[/]",
         border_style=SUCCESS,
         padding=(1, 1),
     )
@@ -128,9 +136,9 @@ def torrent_details_panel(
     table.add_row("Source", source if len(source) <= 60 else source[:57] + "...")
     # Show the full expected output path including the .zip filename
     if output_dir and zip_filename:
-        table.add_row("Output", f"{output_dir}/{zip_filename}")
+        table.add_row("Saves to", f"{output_dir}/{zip_filename}")
     elif output_dir:
-        table.add_row("Output", output_dir)
+        table.add_row("Saves to", output_dir)
 
     panel = Panel(
         table,
@@ -148,28 +156,27 @@ def settings_panel(config: dict) -> None:
     table.add_column(style=f"bold {ACCENT}")
     table.add_column(style="default")
 
+    # Human-readable labels for each config key
     labels = {
-        "output_dir": "Output Directory",
-        "download_limit": "Download Limit",
-        "upload_limit": "Upload Limit",
-        "port": "Port",
-        "encryption": "Encryption",
-        "seed": "Seed After Download",
-        "timeout": "Timeout",
-        "sequential": "Sequential Download",
-        "verify": "Verify Integrity",
-        "blocklist": "Peer Blocklist",
+        "output_dir": "Save files to",
+        "download_limit": "Max download speed",
+        "upload_limit": "Max upload speed",
+        "port": "Network port",
+        "encryption": "Connection privacy",
+        "seed": "Keep sharing after download",
+        "timeout": "Time limit",
+        "in_order": "Download in order",
+        "check": "Check file for errors",
+        "blocklist": "Block bad peers",
     }
 
     for key, label in labels.items():
         val = config.get(key)
         # Format the value nicely depending on the key type
-        if key in ("download_limit", "upload_limit", "timeout"):
-            if val is not None:
-                unit = "kB/s" if key != "timeout" else "s"
-                display = f"{val} {unit}"
-            else:
-                display = f"[{DIM}]off[/]"
+        if key in ("download_limit", "upload_limit"):
+            display = f"{val} kB/s" if val is not None else f"[{DIM}]no limit[/]"
+        elif key == "timeout":
+            display = f"{val}s" if val is not None else f"[{DIM}]none[/]"
         elif isinstance(val, bool):
             display = f"[{SUCCESS}]yes[/]" if val else f"[{DIM}]no[/]"
         elif val is None:
@@ -185,81 +192,3 @@ def settings_panel(config: dict) -> None:
         padding=(1, 1),
     )
     console.print(panel)
-
-
-# Active-downloads status cards — each torrent is rendered as a mini card with progress and metadata
-def status_table(torrents: list[dict]) -> None:
-    """Render a list of torrents as styled status cards inside a Panel."""
-    status_colors = {
-        "downloading": SUCCESS,
-        "seeding": MAGENTA,
-        "paused": WARNING,
-        "queued": DIM,
-    }
-
-    status_icons = {
-        "downloading": "▼",
-        "seeding": "▲",
-        "paused": "⏸",
-        "queued": "◦",
-    }
-
-    content = Text()
-    for i, t in enumerate(torrents):
-        # Separator between torrents
-        if i > 0:
-            content.append(f"\n  {'─' * 52}\n\n", style=DIM)
-
-        name = t.get("name", "Unknown")
-        status = t.get("status", "downloading")
-        color = status_colors.get(status, DIM)
-        icon = status_icons.get(status, "·")
-
-        # First line: icon + name + status label
-        content.append(f"  {icon} ", style=color)
-        content.append(name, style="bold")
-        content.append(f"  {status.upper()}\n", style=color)
-
-        # Second line: progress bar + percentage
-        pct = t.get("progress", 0)
-        bar_width = 30
-        filled = int(bar_width * pct / 100)
-        content.append("    ")
-        content.append("━" * filled, style=SUCCESS)
-        content.append("━" * (bar_width - filled), style=DIM)
-        content.append(f"  {pct:>3}%\n", style="bold")
-
-        # Third line: download/upload speeds, peers, ETA
-        details = []
-        down = t.get("down_speed", "—")
-        up = t.get("up_speed", "—")
-        peers = t.get("peers", 0)
-        eta = t.get("eta", "—")
-
-        if down != "—":
-            details.append(("↓ ", DIM, down, SUCCESS))
-        if up != "—":
-            details.append(("↑ ", DIM, up, MAGENTA))
-        if peers:
-            details.append(("", "", f"{peers} peers", ACCENT))
-        if eta != "—":
-            details.append(("ETA ", DIM, eta, WARNING))
-
-        content.append("    ")
-        for j, (prefix, prefix_style, val, val_style) in enumerate(details):
-            if j > 0:
-                content.append("  ·  ", style=DIM)
-            if prefix:
-                content.append(prefix, style=prefix_style)
-            content.append(val, style=val_style)
-        content.append("\n")
-
-    panel = Panel(
-        content,
-        title=f"[bold {MAGENTA}]Active Downloads[/]",
-        border_style=CYAN,
-        padding=(1, 1),
-    )
-    console.print()
-    console.print(panel)
-    console.print()

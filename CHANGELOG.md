@@ -1,25 +1,26 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this project will be documented in this file.
 
-## v1.0.0
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Released:** June 12, 2026
-
-This is the first version of *Torrentor CLI*.
+## [1.0.0] - 2024-06-12
 
 ### Added
 
-- Interactive CLI mode with menu-driven navigation
-- Direct CLI mode via `torrentor add <magnet|file>`
+- Interactive mode with guided menus (just run `torrentor`)
+- Direct mode via `torrentor add <magnet|file>` with flags
 - Magnet link and `.torrent` file support
-- Automatic seeding stop after download completes
-- Post-download processing: zip with light compression + slugified filenames
-- Persistent configuration at `~/.config/torrentor/config.json`
-- `torrentor config` subcommand to view, set, reset, and locate config
-- Configurable output directory, speed limits, port, and encryption
-- CLI flag overrides for per-invocation settings
-- `transmission-cli` dependency check with styled install instructions
-- `torrentor demo` command showcasing all UI elements
-- Beautiful Rich-powered UI: banner, panels, progress bars, status cards
-- InquirerPy interactive prompts for guided workflows
+- Automatic stop after download completes (no seeding by default)
+- Post-download packaging: zip with light compression + clean filenames
+- Persistent settings at `~/.config/torrentor/config.json` (macOS/Linux) or `%APPDATA%\torrentor\config.json` (Windows)
+- `torrentor config` command to view, change, reset, and locate settings
+- Cancel/retry with cache support — resume interrupted downloads
+- Confetti celebration on download completion
+- Spinning progress indicator with live speed, upload, and peer count
+- `transmission-cli` dependency check with OS-specific install instructions
+- Cross-platform support: macOS, Linux, and Windows
+- Main flags: `--save-to`, `--max-download`, `--max-upload`, `--no-limit`, `--timeout`
+- Advanced flags: `--seed`, `--in-order`, `--check`, `--port`, `--encryption`, `--blocklist`
+- Every `--flag` has a short `-x` equivalent; `-h` works everywhere

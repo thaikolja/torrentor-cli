@@ -5,18 +5,18 @@ Thanks for your interest in contributing! Here's how to get started.
 ## Setup
 
 ```bash
-git clone https://github.com/your-username/torrentor-cli.git
+git clone https://github.com/thaikolja/torrentor-cli.git
 cd torrentor-cli
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-## Development Workflow
+## Development workflow
 
 1. Create a branch from `main`
 2. Make your changes
-3. Run the quality checks:
+3. Run the quality checks (all four must pass):
 
 ```bash
 ruff check .                # lint
@@ -25,14 +25,16 @@ mypy torrentor              # type check
 pytest                      # tests
 ```
 
-4. Fix any issues, then submit a pull request
+4. Fix any issues: `ruff check --fix . && ruff format .`
+5. Submit a pull request
 
-## Code Style
+## Code style
 
 - Formatted with **ruff** (line length 100)
-- Type hints on all function signatures
-- No comments unless absolutely necessary for non-obvious logic
-- Follow existing patterns in the codebase
+- Type hints on all function signatures (`disallow_untyped_defs`)
+- `X | None` instead of `Optional[X]` (enforced by ruff UP045)
+- **RUF001 is intentionally ignored** — the codebase uses Unicode characters for the terminal UI
+- **mypy overrides** exist for `torrentor.ui.prompts` and `torrentor.ui.progress` because InquirerPy and Rich have incomplete type stubs
 
 ## Testing
 
@@ -42,28 +44,22 @@ Tests live in `tests/` and use **pytest**. Run with coverage:
 pytest --cov=torrentor --cov-report=term-missing
 ```
 
-When adding a new feature, add corresponding tests covering:
-- Happy path
-- Edge cases
-- Error conditions
+When adding a feature, add tests for the happy path, edge cases, and error conditions.
 
-## Project Structure
+## Project structure
 
 ```
 torrentor/
   cli.py          # Typer app, commands, interactive mode
-  ui/             # Rich panels, prompts, progress, theme
+  ui/             # Rich panels, prompts, progress, theme, effects
   core/           # Engine, config, post-processing, validators
   models/         # Data models
 tests/            # pytest test suite
 ```
 
-## Commit Messages
+## Cross-platform notes
 
-Use clear, imperative-mood messages:
-
-```
-Add magnet link validation
-Fix zip compression for single files
-Update config schema with output_dir
-```
+- Config path uses `%APPDATA%` on Windows, `~/.config` on Unix
+- Process termination uses `process.terminate()` (works on all OSes)
+- Terminal effects use Rich's `Live` display (no raw ANSI escapes)
+- Test and verify on macOS, Linux, and Windows when possible

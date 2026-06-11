@@ -1,11 +1,10 @@
-"""Typer CLI app — commands: add, config (set/reset/path), demo, and an interactive mode."""
+"""Typer CLI app — commands: add, config (set/reset/path), and an interactive mode."""
 
-import time
 from pathlib import Path
 from urllib.parse import unquote_plus
 
 import typer
-from rich.text import Text
+from rich.progress import TaskID
 
 from torrentor import __version__
 from torrentor.core.config import CONFIG_FILE, TorrentorConfig, load_config, save_config
@@ -25,11 +24,10 @@ from torrentor.ui.panels import (
     error_panel,
     info_panel,
     settings_panel,
-    status_table,
     success_panel,
     torrent_details_panel,
 )
-from torrentor.ui.progress import create_download_progress, show_controls_hint, show_mock_progress
+from torrentor.ui.progress import create_download_progress, show_controls_hint
 from torrentor.ui.prompts import (
     add_torrent_menu,
     directory_input,
@@ -42,12 +40,12 @@ from torrentor.ui.prompts import (
     settings_menu,
     speed_limit_input,
 )
-from torrentor.ui.theme import ACCENT, CYAN, DIM, MAGENTA, console
+from torrentor.ui.theme import CYAN, DIM, console
 
 # Main Typer app and its nested config sub-app
 app = typer.Typer(
     name="torrentor",
-    help="A beautiful CLI torrent client powered by transmission-cli.",
+    help="Download torrents from the command line — easy, fast, cross-platform.",
     add_completion=False,
     rich_markup_mode="rich",
     no_args_is_help=False,
@@ -55,7 +53,7 @@ app = typer.Typer(
 )
 
 config_app = typer.Typer(
-    help="View and manage torrentor configuration.",
+    help="View and change your torrentor settings.",
     no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
@@ -102,7 +100,7 @@ def _run_download(
 
     # Bail early if the source is neither a magnet link nor a .torrent file
     if source_type is None:
-        error_panel("Invalid source. Provide a magnet link or path to a .torrent file.")
+        error_panel("That doesn't look like a magnet link or a .torrent file.")
         return False, None
 
     # Predict what the .zip will be called so we can show it up front
@@ -118,9 +116,9 @@ def _run_download(
 
     # Show the spinner immediately with a "Connecting..." label
     task_label = name if len(name) <= 30 else name[:27] + "..."
-    task_id: int | None = None
+    task_id: TaskID | None = None
 
-    # This callback gets called by the engine on every progress update from transmission-cli
+    # This callback gets called by the engine on every progress update
     def on_progress(info: dict) -> None:
         nonlocal task_id
         pct = info.get("progress", 0.0)
@@ -135,7 +133,7 @@ def _run_download(
         else:
             progress.update(task_id, completed=pct, **fields)
 
-    # Show keyboard shortcuts and start the download with spinner visible from the start
+    # Show controls hint and start the download with spinner visible from the start
     show_controls_hint()
     try:
         with progress:
@@ -144,7 +142,7 @@ def _run_download(
                 "Connecting...", total=None, down="—", up="—", peers=0
             )
 
-            # Wrap on_progress to remove the connecting task on first real update
+            # Remove the connecting task on first real update
             first_update = True
 
             def _on_progress_wrapper(info: dict) -> None:
@@ -160,11 +158,11 @@ def _run_download(
     except KeyboardInterrupt:
         # Stop the process but keep the cache for potential resume
         console.print()
-        info_panel("Interrupted", "Download paused. Cache is preserved.")
+        info_panel("Paused", "Download paused. Your progress is saved.")
         return False, engine
     except Exception as exc:
         console.print()
-        error_panel(f"Download failed: {exc}")
+        error_panel(f"Something went wrong: {exc}")
         return False, engine
 
     console.print()
@@ -177,7 +175,7 @@ def _run_download(
         celebrate()
         download_complete_panel(str(zip_path), zip_size)
     except Exception as exc:
-        error_panel(f"Post-processing failed: {exc}")
+        error_panel(f"Couldn't package the file: {exc}")
         return False, engine
     finally:
         if engine.temp_dir:
@@ -226,7 +224,7 @@ def _interactive_mode() -> None:
             _quit()
 
 
-# Interactive "add a torrent" flow with cancel/retry + cache support
+# Interactive "download a torrent" flow with cancel/retry + cache support
 def _interactive_add() -> None:
     """Walk the user through choosing source type, entering the source, and downloading with retry."""
     console.print()
@@ -289,7 +287,7 @@ def _interactive_add() -> None:
 
 # Interactive settings editor — loop until the user picks "back"
 def _interactive_settings() -> None:
-    """Show current config, let the user pick a setting to change, save on each change."""
+    """Show current settings, let the user pick one to change, save on each change."""
     config = load_config()
 
     while True:
@@ -309,9 +307,9 @@ def _interactive_settings() -> None:
             if choice == "output_dir":
                 config.output_dir = directory_input(config.output_dir)
             elif choice == "download_limit":
-                config.download_limit = speed_limit_input("Download limit", config.download_limit)
+                config.download_limit = speed_limit_input("Download speed", config.download_limit)
             elif choice == "upload_limit":
-                config.upload_limit = speed_limit_input("Upload limit", config.upload_limit)
+                config.upload_limit = speed_limit_input("Upload speed", config.upload_limit)
             elif choice == "port":
                 config.port = port_input(config.port)
             elif choice == "encryption":
@@ -335,102 +333,110 @@ def _quit() -> None:
 # ── CLI command: add ──
 @app.command()
 def add(
-    source: str = typer.Argument(..., help="Magnet link or path to .torrent file."),
-    output_dir: str | None = typer.Option(
+    source: str = typer.Argument(..., help="Magnet link or path to a .torrent file."),
+    # ── Main options ──
+    save_to: str | None = typer.Option(
         None,
-        "--output-dir",
+        "--save-to",
         "-o",
-        help="Directory for the final .zip file.",
+        help="Where to save the downloaded file.",
     ),
-    download_limit: int | None = typer.Option(
+    max_download: int | None = typer.Option(
         None,
-        "--download-limit",
+        "--max-download",
         "-l",
-        help="Max download speed in kB/s.",
+        help="Limit how fast the file downloads (kB/s).",
     ),
-    upload_limit: int | None = typer.Option(
+    max_upload: int | None = typer.Option(
         None,
-        "--upload-limit",
+        "--max-upload",
         "-u",
-        help="Max upload speed in kB/s.",
+        help="Limit how fast you share with others (kB/s).",
     ),
     no_limit: bool = typer.Option(
         False,
         "--no-limit",
         "-n",
-        help="Remove all speed limits.",
-    ),
-    encryption: str | None = typer.Option(
-        None,
-        "--encryption",
-        "-e",
-        help="Encryption mode: required, preferred, tolerated.",
-    ),
-    port: int | None = typer.Option(
-        None,
-        "--port",
-        "-p",
-        help="Port for incoming peer connections.",
-    ),
-    seed: bool | None = typer.Option(
-        None,
-        "--seed",
-        "-s",
-        help="Keep seeding after download completes.",
+        help="Download and upload at full speed.",
     ),
     timeout: int | None = typer.Option(
         None,
         "--timeout",
         "-t",
-        help="Abort download after this many seconds.",
+        help="Stop if the download takes longer than this (seconds).",
     ),
-    sequential: bool | None = typer.Option(
+    # ── Advanced options ──
+    seed: bool | None = typer.Option(
         None,
-        "--sequential",
+        "--seed",
+        "-s",
+        help="Keep sharing the file after it finishes downloading.",
+        rich_help_panel="Advanced",
+    ),
+    in_order: bool | None = typer.Option(
+        None,
+        "--in-order",
         "-q",
-        help="Download pieces sequentially instead of rarest-first.",
+        help="Download from beginning to end instead of jumping around.",
+        rich_help_panel="Advanced",
     ),
-    verify_torrent: bool | None = typer.Option(
+    check_file: bool | None = typer.Option(
         None,
-        "--verify",
+        "--check",
         "-y",
-        help="Verify torrent data integrity.",
+        help="Double-check the downloaded file for errors.",
+        rich_help_panel="Advanced",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        "-p",
+        help="Network port for connecting to other peers.",
+        rich_help_panel="Advanced",
+    ),
+    encryption: str | None = typer.Option(
+        None,
+        "--encryption",
+        "-e",
+        help="Connection privacy: required, preferred, or tolerated.",
+        rich_help_panel="Advanced",
     ),
     blocklist: bool | None = typer.Option(
         None,
         "--blocklist",
         "-b",
-        help="Enable peer blocklist.",
+        help="Block known bad peers from connecting.",
+        rich_help_panel="Advanced",
     ),
 ) -> None:
-    """Add a torrent for download via magnet link or .torrent file."""
+    """Download a torrent from a magnet link or .torrent file."""
     _require_transmission()
     show_banner()
 
-    # Load config, then override with any CLI flag that was passed
+    # Load saved settings, then override with any flags the user passed
     config = load_config()
 
-    if output_dir:
-        config.output_dir = output_dir
-    if download_limit is not None:
-        config.download_limit = download_limit
-    if upload_limit is not None:
-        config.upload_limit = upload_limit
+    if save_to:
+        config.output_dir = save_to
+    if max_download is not None:
+        config.download_limit = max_download
+    if max_upload is not None:
+        config.upload_limit = max_upload
     if no_limit:
         config.download_limit = None
         config.upload_limit = None
-    if encryption:
-        config.encryption = encryption
-    if port is not None:
-        config.port = port
-    if seed is not None:
-        config.seed = seed
     if timeout is not None:
         config.timeout = timeout
-    if sequential is not None:
-        config.sequential = sequential
-    if verify_torrent is not None:
-        config.verify = verify_torrent
+    if seed is not None:
+        config.seed = seed
+    if in_order is not None:
+        config.in_order = in_order
+    if check_file is not None:
+        config.check = check_file
+    if port is not None:
+        config.port = port
+    if encryption:
+        config.encryption = encryption
     if blocklist is not None:
         config.blocklist = blocklist
 
@@ -448,12 +454,12 @@ def add(
 # `torrentor config` — show current settings
 @config_app.callback(invoke_without_command=True)
 def config_main(ctx: typer.Context) -> None:
-    """Show current configuration."""
+    """Show your current settings."""
     if ctx.invoked_subcommand is None:
         config = load_config()
         console.print()
         settings_panel(config.to_dict())
-        console.print(f"\n  [{DIM}]Config file: {CONFIG_FILE}[/]\n")
+        console.print(f"\n  [{DIM}]Settings file: {CONFIG_FILE}[/]\n")
 
 
 # `torrentor config set <key> <value>`
@@ -461,23 +467,23 @@ def config_main(ctx: typer.Context) -> None:
 def config_set(
     key: str = typer.Argument(
         ...,
-        help="Config key (output_dir, download_limit, upload_limit, port, encryption, ...).",
+        help="Setting name (e.g. output_dir, download_limit, seed, in_order, ...).",
     ),
     value: str = typer.Argument(
-        ..., help="New value (use 'none' to unset, 'true'/'false' for booleans)."
+        ..., help="New value. Use 'none' to clear, 'true'/'false' for on/off settings."
     ),
 ) -> None:
-    """Set a configuration value."""
+    """Change a setting."""
     config = load_config()
 
     valid_keys = set(TorrentorConfig.__dataclass_fields__)
     if key not in valid_keys:
-        error_panel(f"Unknown key '{key}'. Valid keys: {', '.join(sorted(valid_keys))}")
+        error_panel(f"Unknown setting '{key}'. Available: {', '.join(sorted(valid_keys))}")
         raise typer.Exit(1)
 
-    # Boolean fields
-    bool_keys = {"seed", "sequential", "verify", "blocklist"}
-    # Optional int fields (None = off)
+    # Boolean settings
+    bool_keys = {"seed", "in_order", "check", "blocklist"}
+    # Optional number settings (None = off)
     optional_int_keys = {"download_limit", "upload_limit", "timeout"}
 
     if key in bool_keys:
@@ -490,149 +496,28 @@ def config_set(
         config.port = int(value)
     elif key == "encryption":
         if value not in ("required", "preferred", "tolerated"):
-            error_panel("Encryption must be: required, preferred, or tolerated.")
+            error_panel("Must be: required, preferred, or tolerated.")
             raise typer.Exit(1)
         config.encryption = value
 
     save_config(config)
     console.print()
-    success_panel(f"{key} set to {getattr(config, key)!r}")
+    success_panel(f"{key} is now {getattr(config, key)!r}")
     console.print()
 
 
 # `torrentor config reset`
 @config_app.command()
 def reset() -> None:
-    """Reset configuration to defaults."""
+    """Reset all settings to defaults."""
     save_config(TorrentorConfig())
     console.print()
-    success_panel("Configuration reset to defaults.")
+    success_panel("All settings have been reset to defaults.")
     console.print()
 
 
 # `torrentor config path`
 @config_app.command()
 def path() -> None:
-    """Print the config file path."""
+    """Show where your settings file is stored."""
     console.print(str(CONFIG_FILE))
-
-
-# ── Demo command (no transmission-cli required) ──
-@app.command()
-def demo() -> None:
-    """Showcase all UI elements with mock data."""
-    console.clear()
-
-    console.print(f"\n[{DIM}]{'─' * 50}[/]")
-    console.print(f"[bold {MAGENTA}]  TORRENTOR UI DEMO[/]")
-    console.print(f"[{DIM}]{'─' * 50}[/]\n")
-    time.sleep(0.8)
-
-    console.print(f"[{ACCENT}]1/6[/] [bold]Banner[/]\n")
-    show_banner()
-    time.sleep(1.5)
-
-    console.print(f"\n[{ACCENT}]2/6[/] [bold]Interactive Menu[/]\n")
-    _demo_menu()
-    time.sleep(1.2)
-
-    console.print(f"\n[{ACCENT}]3/6[/] [bold]Torrent Details Panel[/]\n")
-    torrent_details_panel(
-        "Ubuntu 24.04.1 LTS (Desktop, 64-bit)",
-        "magnet",
-        "magnet:?xt=urn:btih:a1b2c3d4e5...&dn=Ubuntu+24.04.1+LTS",
-        "~/Downloads",
-        "ubuntu-24041-lts-desktop-64-bit.zip",
-    )
-    time.sleep(1.2)
-
-    console.print(f"\n[{ACCENT}]4/6[/] [bold]Download Progress[/]\n")
-    show_controls_hint()
-    show_mock_progress(duration=4.0)
-    time.sleep(0.8)
-
-    console.print(f"\n[{ACCENT}]5/6[/] [bold]Celebration Effect[/]\n")
-    celebrate()
-    download_complete_panel(
-        "~/Downloads/ubuntu-24041-lts-desktop-64-bit.zip",
-        "2.4 GB",
-    )
-    time.sleep(1.2)
-
-    console.print(f"\n[{ACCENT}]6/6[/] [bold]Status Table[/]\n")
-    _demo_status_table()
-    time.sleep(0.5)
-
-    console.print(f"\n[{DIM}]{'─' * 50}[/]")
-    success_panel("Demo complete! Run 'torrentor' to start the interactive mode.")
-    console.print()
-
-
-# Renders a mock menu as a Rich panel for the demo
-def _demo_menu() -> None:
-    """Draw a static mock of the interactive menu inside a panel."""
-    choices = [
-        (f"[bold {CYAN}]❯[/]", "[bold]  Add Torrent[/]"),
-        ("  ", f"[{DIM}]  ─────────────────────[/]"),
-        ("  ", f"[{DIM}]  Settings[/]"),
-        ("  ", f"[{DIM}]  Quit[/]"),
-    ]
-
-    lines = Text()
-    for pointer, label in choices:
-        lines.append_text(Text.from_markup(f"  {pointer} {label}\n"))
-
-    from rich.panel import Panel
-
-    panel = Panel(
-        lines,
-        title=f"[bold {CYAN}]What would you like to do?[/]",
-        subtitle=f"[{DIM}](↑/↓ to move, Enter to select)[/]",
-        border_style=CYAN,
-        padding=(1, 2),
-    )
-    console.print(panel)
-
-
-# Mock data for the demo's status-table step
-def _demo_status_table() -> None:
-    """Build a list of fake torrents and render them via status_table()."""
-    mock_torrents = [
-        {
-            "name": "Ubuntu 24.04 LTS",
-            "progress": 87,
-            "down_speed": "2.4 MB/s",
-            "up_speed": "312 KB/s",
-            "peers": 12,
-            "eta": "0:02:14",
-            "status": "downloading",
-        },
-        {
-            "name": "Arch Linux 2024.06",
-            "progress": 100,
-            "down_speed": "—",
-            "up_speed": "1.2 MB/s",
-            "peers": 4,
-            "eta": "—",
-            "status": "seeding",
-        },
-        {
-            "name": "Debian 12.5 netinst",
-            "progress": 23,
-            "down_speed": "3.1 MB/s",
-            "up_speed": "89 KB/s",
-            "peers": 21,
-            "eta": "0:08:47",
-            "status": "downloading",
-        },
-        {
-            "name": "Fedora Workstation 40",
-            "progress": 0,
-            "down_speed": "—",
-            "up_speed": "—",
-            "peers": 0,
-            "eta": "—",
-            "status": "queued",
-        },
-    ]
-    status_table(mock_torrents)
