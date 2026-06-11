@@ -1,5 +1,6 @@
 """Color palette, Rich console with custom theme, and InquirerPy style overrides."""
 
+from InquirerPy.utils import get_style
 from rich.console import Console
 from rich.theme import Theme
 
@@ -33,24 +34,26 @@ custom_theme = Theme(
 
 console = Console(theme=custom_theme)
 
-# InquirerPy style dict — maps prompt component names to ANSI / hex styles
-INQUIRER_STYLE = {
-    "questionmark": f"{CYAN} bold",
-    "answermark": f"{SUCCESS} bold",
-    "answer": f"{CYAN}",
-    "input": f"{TEXT}",
-    "question": "bold",
-    "answered_question": "bold",
-    "instruction": f"{DIM}",
-    "long_instruction": f"{DIM}",
-    "pointer": f"{CYAN} bold",
-    "checkbox": f"{CYAN} bold",
-    "separator": f"{DIM}",
-    "skipped": f"{DIM}",
-    "validator": "",
-    "marker": f"{CYAN} bold",
-    "fuzzy_prompt": f"{CYAN} bold",
-    "fuzzy_info": f"{DIM}",
-    "fuzzy_border": f"{CYAN}",
-    "fuzzy_match": f"{MAGENTA} bold",
-}
+# InquirerPy style — get_style() remaps keys and adds required defaults
+INQUIRER_STYLE = get_style(
+    {
+        "questionmark": f"{CYAN} bold",
+        "answermark": f"{SUCCESS} bold",
+        "answer": f"{CYAN}",
+        "input": f"{TEXT}",
+        "question": "bold",
+        "answered_question": "bold",
+        "instruction": f"{DIM}",
+        "long_instruction": f"{DIM}",
+        "pointer": f"{CYAN} bold",
+        "checkbox": f"{CYAN} bold",
+        "separator": f"{DIM}",
+        "skipped": f"{DIM}",
+        "validator": "",
+        "marker": f"{CYAN} bold",
+        "fuzzy_prompt": f"{CYAN} bold",
+        "fuzzy_info": f"{DIM}",
+        "fuzzy_border": f"{CYAN}",
+        "fuzzy_match": f"{MAGENTA} bold",
+    }
+)

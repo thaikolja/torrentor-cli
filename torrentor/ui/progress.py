@@ -10,7 +10,10 @@ from rich.progress import (
     TextColumn,
 )
 
-from torrentor.ui.theme import CYAN, SUCCESS, console
+from torrentor.ui.theme import CYAN, DIM, SUCCESS, console
+
+# Hint bar shown below the progress bar during downloads
+CONTROLS_HINT = f"  [{DIM}]Ctrl+C to cancel[/]"
 
 
 # Factory that builds a progress bar suited for a single real download
@@ -27,6 +30,12 @@ def create_download_progress() -> Progress:
         console=console,
         expand=False,
     )
+
+
+# Print the controls hint below the progress bar
+def show_controls_hint() -> None:
+    """Display keyboard shortcut hints for the active download."""
+    console.print(CONTROLS_HINT)
 
 
 # Same layout, separate factory — kept for the mock progress in the demo

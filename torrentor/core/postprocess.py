@@ -23,6 +23,12 @@ def slugify(name: str) -> str:
     return name or "download"
 
 
+# Preview what the zip filename will be before the download even starts
+def predict_zip_filename(name: str) -> str:
+    """Return the expected .zip filename for a given torrent name (e.g. 'my-movie-2024.zip')."""
+    return f"{slugify(name)}.zip"
+
+
 # If a zip file already exists at the target path, append -1, -2, etc.
 def _unique_path(path: Path) -> Path:
     """Return a path that doesn't exist yet by appending -N suffixes if needed."""

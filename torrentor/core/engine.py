@@ -7,6 +7,7 @@ import stat
 import subprocess
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -71,7 +72,7 @@ class TransmissionEngine:
 
     @property
     def temp_dir(self) -> Path | None:
-        """The temp directory where files are downloaded — useful for cleanup later."""
+        """The temp directory where files are downloaded — useful for cleanup or resume later."""
         return self._temp_dir
 
     # Build the list of CLI args for transmission-cli
@@ -103,8 +104,18 @@ class TransmissionEngine:
         if self.config.encryption in encryption_map:
             cmd.append(encryption_map[self.config.encryption])
 
-        # Port and the actual torrent source always go last
+        # Port for incoming peer connections
         cmd.extend(["-p", str(self.config.port)])
+
+        # Optional flags based on config
+        if self.config.sequential:
+            cmd.append("-seq")
+        if self.config.verify:
+            cmd.append("-v")
+        if self.config.blocklist:
+            cmd.append("-b")
+
+        # The torrent source (magnet link or .torrent path) goes last
         cmd.append(source)
         return cmd
 
@@ -113,15 +124,23 @@ class TransmissionEngine:
         self,
         source: str,
         on_progress: Callable[[dict], None] | None = None,
+        resume_dir: Path | None = None,
     ) -> Path:
-        """Download a torrent, calling on_progress with speed/peer updates, then return the data path."""
-        # Set up a temp directory for the raw download
-        self._temp_dir = Path(tempfile.mkdtemp(prefix="torrentor-"))
-        download_dir = self._temp_dir / "data"
-        download_dir.mkdir()
+        """Download a torrent. If resume_dir is given, reuse its cached data instead of starting fresh."""
+        # Reuse an existing temp directory (for resume) or create a new one
+        if resume_dir and resume_dir.exists():
+            self._temp_dir = resume_dir
+            download_dir = self._temp_dir / "data"
+            download_dir.mkdir(exist_ok=True)
+        else:
+            self._temp_dir = Path(tempfile.mkdtemp(prefix="torrentor-"))
+            download_dir = self._temp_dir / "data"
+            download_dir.mkdir()
 
-        # Create a finish script that touches a marker file — transmission-cli runs this when done
+        # Create (or recreate) the finish script and remove stale marker
         marker = self._temp_dir / ".done"
+        if marker.exists():
+            marker.unlink()
         finish_script = self._temp_dir / "finish.sh"
         finish_script.write_text(f"#!/bin/sh\ntouch '{marker}'\n")
         finish_script.chmod(finish_script.stat().st_mode | stat.S_IEXEC)
@@ -150,6 +169,9 @@ class TransmissionEngine:
         watcher = threading.Thread(target=_watch_marker, daemon=True)
         watcher.start()
 
+        # Track when the download started for timeout purposes
+        start_time = time.monotonic()
+
         # Read stdout line by line, parse progress, and check if we're done
         try:
             assert self._process.stdout is not None
@@ -165,14 +187,19 @@ class TransmissionEngine:
                 # Marker appeared? Stop reading output
                 if done_event.is_set():
                     break
+                # Check if we've exceeded the timeout
+                if self.config.timeout and (time.monotonic() - start_time) > self.config.timeout:
+                    self._stop_process()
+                    raise TimeoutError(f"Download timed out after {self.config.timeout}s")
         except KeyboardInterrupt:
-            # User hit Ctrl+C — clean up everything
-            self.abort()
+            # User hit Ctrl+C — stop the process but keep cache for potential resume
+            self._stop_process()
             raise
 
-        # Wait for the marker and kill the process
+        # Wait for the marker and kill the process (unless seeding is enabled)
         done_event.wait(timeout=5)
-        self._stop_process()
+        if not self.config.seed:
+            self._stop_process()
 
         return download_dir
 

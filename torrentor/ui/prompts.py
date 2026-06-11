@@ -69,13 +69,19 @@ def file_input() -> str:
     ).execute()
 
 
-# Yes / No confirmation before starting a download
-def confirm_download() -> bool:
-    """Ask the user to confirm they want to start the download."""
-    return inquirer.confirm(
-        message="Start download?",
-        default=True,
+# Shown after a download fails — lets the user retry or bail
+def post_download_menu() -> str:
+    """Ask the user what to do after a failed download: retry, go back, or quit."""
+    return inquirer.select(
+        message="What would you like to do?",
+        choices=[
+            {"name": "  Retry download", "value": "retry"},
+            {"name": "  Back to menu", "value": "back"},
+            Separator(),
+            {"name": "  Quit", "value": "quit"},
+        ],
         style=INQUIRER_STYLE,
+        pointer="❯",
         qmark="",
         amark="",
     ).execute()

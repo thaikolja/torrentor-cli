@@ -111,18 +111,25 @@ def download_complete_panel(zip_path: str, zip_size: str) -> None:
     console.print(panel)
 
 
-# Torrent details panel — name, type (magnet/file), source URI, and optional output dir
+# Torrent details panel — name, type (magnet/file), source URI, output path + zip filename
 def torrent_details_panel(
-    name: str, source_type: str, source: str, output_dir: str | None = None
+    name: str,
+    source_type: str,
+    source: str,
+    output_dir: str | None = None,
+    zip_filename: str | None = None,
 ) -> None:
-    """Show a magenta-bordered panel with torrent metadata."""
+    """Show a magenta-bordered panel with torrent metadata and expected output path."""
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style=f"bold {ACCENT}")
     table.add_column(style="default")
     table.add_row("Name", name)
     table.add_row("Type", source_type.capitalize())
     table.add_row("Source", source if len(source) <= 60 else source[:57] + "...")
-    if output_dir:
+    # Show the full expected output path including the .zip filename
+    if output_dir and zip_filename:
+        table.add_row("Output", f"{output_dir}/{zip_filename}")
+    elif output_dir:
         table.add_row("Output", output_dir)
 
     panel = Panel(
@@ -147,13 +154,28 @@ def settings_panel(config: dict) -> None:
         "upload_limit": "Upload Limit",
         "port": "Port",
         "encryption": "Encryption",
+        "seed": "Seed After Download",
+        "timeout": "Timeout",
+        "sequential": "Sequential Download",
+        "verify": "Verify Integrity",
+        "blocklist": "Peer Blocklist",
     }
 
     for key, label in labels.items():
         val = config.get(key)
-        display = str(val) if val is not None else f"[{DIM}]unlimited[/]"
-        if key in ("download_limit", "upload_limit") and val is not None:
-            display = f"{val} kB/s"
+        # Format the value nicely depending on the key type
+        if key in ("download_limit", "upload_limit", "timeout"):
+            if val is not None:
+                unit = "kB/s" if key != "timeout" else "s"
+                display = f"{val} {unit}"
+            else:
+                display = f"[{DIM}]off[/]"
+        elif isinstance(val, bool):
+            display = f"[{SUCCESS}]yes[/]" if val else f"[{DIM}]no[/]"
+        elif val is None:
+            display = f"[{DIM}]off[/]"
+        else:
+            display = str(val)
         table.add_row(label, display)
 
     panel = Panel(

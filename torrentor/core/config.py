@@ -21,6 +21,16 @@ class TorrentorConfig:
     # Peer port and encryption preference
     port: int = 51413
     encryption: str = "preferred"
+    # Whether to keep seeding after download completes
+    seed: bool = False
+    # Download timeout in seconds — None means no timeout
+    timeout: int | None = None
+    # Download pieces in order instead of rarest-first
+    sequential: bool = False
+    # Verify torrent data integrity after download
+    verify: bool = False
+    # Enable peer blocklist
+    blocklist: bool = False
 
     # Turn the dataclass into a plain dict for JSON serialization
     def to_dict(self) -> dict:

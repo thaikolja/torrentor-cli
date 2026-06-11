@@ -10,9 +10,15 @@ from rich.text import Text
 from torrentor import __version__
 from torrentor.core.config import CONFIG_FILE, TorrentorConfig, load_config, save_config
 from torrentor.core.engine import TransmissionEngine, is_transmission_installed
-from torrentor.core.postprocess import cleanup, format_size, zip_and_move
+from torrentor.core.postprocess import (
+    cleanup,
+    format_size,
+    predict_zip_filename,
+    zip_and_move,
+)
 from torrentor.core.validators import validate_source
 from torrentor.ui.banner import show_banner
+from torrentor.ui.effects import celebrate
 from torrentor.ui.panels import (
     dependency_error,
     download_complete_panel,
@@ -23,16 +29,16 @@ from torrentor.ui.panels import (
     success_panel,
     torrent_details_panel,
 )
-from torrentor.ui.progress import create_download_progress, show_mock_progress
+from torrentor.ui.progress import create_download_progress, show_controls_hint, show_mock_progress
 from torrentor.ui.prompts import (
     add_torrent_menu,
-    confirm_download,
     directory_input,
     encryption_select,
     file_input,
     magnet_input,
     main_menu,
     port_input,
+    post_download_menu,
     settings_menu,
     speed_limit_input,
 )
@@ -45,11 +51,13 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="rich",
     no_args_is_help=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 config_app = typer.Typer(
     help="View and manage torrentor configuration.",
     no_args_is_help=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 app.add_typer(config_app, name="config")
 
@@ -81,18 +89,22 @@ def _extract_name(source: str) -> str:
     return source.rsplit("/", maxsplit=1)[-1]
 
 
-# The core download-and-postprocess pipeline used by both interactive and CLI modes
-def _run_download(source: str, config: TorrentorConfig) -> None:
-    """Validate source, show details, run engine with progress, then zip and move the result."""
+# The core download-and-postprocess pipeline — returns True on success, False on failure
+def _run_download(source: str, config: TorrentorConfig) -> bool:
+    """Validate source, show details, run engine with progress, zip, celebrate. Returns success."""
     name = _extract_name(source)
     source_type = validate_source(source)
 
+    # Bail early if the source is neither a magnet link nor a .torrent file
     if source_type is None:
         error_panel("Invalid source. Provide a magnet link or path to a .torrent file.")
-        raise typer.Exit(1)
+        return False
+
+    # Predict what the .zip will be called so we can show it up front
+    zip_name = predict_zip_filename(name)
 
     console.print()
-    torrent_details_panel(name, source_type, source, config.output_dir)
+    torrent_details_panel(name, source_type, source, config.output_dir, zip_name)
     console.print()
 
     # Set up the engine and a progress bar
@@ -122,34 +134,39 @@ def _run_download(source: str, config: TorrentorConfig) -> None:
                 peers=info.get("peers", 0),
             )
 
-    # Run the download inside the progress context manager
+    # Show keyboard shortcuts and start the download
+    show_controls_hint()
     try:
         with progress:
             download_dir = engine.download(source, on_progress=on_progress)
     except KeyboardInterrupt:
         console.print()
         info_panel("Interrupted", "Download cancelled. Temp files cleaned up.")
-        raise typer.Exit(1) from None
+        return False
     except Exception as exc:
         engine.abort()
         console.print()
         error_panel(f"Download failed: {exc}")
-        raise typer.Exit(1) from None
+        return False
 
     console.print()
 
-    # Post-process: zip it up, show the result, clean up the temp dir
+    # Post-process: zip it up, celebrate, show the result, clean up the temp dir
     try:
         zip_path = zip_and_move(download_dir, Path(config.output_dir))
         zip_size = format_size(zip_path.stat().st_size)
+        # Confetti burst before the completion panel
+        celebrate()
         download_complete_panel(str(zip_path), zip_size)
     except Exception as exc:
         error_panel(f"Post-processing failed: {exc}")
+        return False
     finally:
         if engine.temp_dir:
             cleanup(engine.temp_dir)
 
     console.print()
+    return True
 
 
 # ── Default callback: when no subcommand is given, launch interactive mode ──
@@ -191,9 +208,9 @@ def _interactive_mode() -> None:
             _quit()
 
 
-# Interactive "add a torrent" flow
+# Interactive "add a torrent" flow with retry support
 def _interactive_add() -> None:
-    """Walk the user through choosing source type, entering the source, confirming, and downloading."""
+    """Walk the user through choosing source type, entering the source, and downloading."""
     console.print()
     try:
         method = add_torrent_menu()
@@ -215,21 +232,26 @@ def _interactive_add() -> None:
     if not source:
         return
 
+    # Try the download — if it fails, offer retry / back / quit
     config = load_config()
-    name = _extract_name(source)
-    console.print()
-    torrent_details_panel(name, method, source, config.output_dir)
-    console.print()
+    while True:
+        success = _run_download(source, config)
+        if success:
+            break
 
-    try:
-        if not confirm_download():
-            info_panel("Cancelled", "Download was not started.")
-            console.print()
+        # Download failed — ask the user what to do next
+        console.print()
+        try:
+            action = post_download_menu()
+        except (KeyboardInterrupt, EOFError):
             return
-    except (KeyboardInterrupt, EOFError):
-        return
 
-    _run_download(source, config)
+        if action == "retry":
+            continue
+        elif action == "quit":
+            _quit()
+        else:
+            return
 
 
 # Interactive settings editor — loop until the user picks "back"
@@ -302,6 +324,7 @@ def add(
     no_limit: bool = typer.Option(
         False,
         "--no-limit",
+        "-n",
         help="Remove all speed limits.",
     ),
     encryption: str | None = typer.Option(
@@ -309,6 +332,42 @@ def add(
         "--encryption",
         "-e",
         help="Encryption mode: required, preferred, tolerated.",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        "-p",
+        help="Port for incoming peer connections.",
+    ),
+    seed: bool | None = typer.Option(
+        None,
+        "--seed",
+        "-s",
+        help="Keep seeding after download completes.",
+    ),
+    timeout: int | None = typer.Option(
+        None,
+        "--timeout",
+        "-t",
+        help="Abort download after this many seconds.",
+    ),
+    sequential: bool | None = typer.Option(
+        None,
+        "--sequential",
+        "-q",
+        help="Download pieces sequentially instead of rarest-first.",
+    ),
+    verify_torrent: bool | None = typer.Option(
+        None,
+        "--verify",
+        "-y",
+        help="Verify torrent data integrity.",
+    ),
+    blocklist: bool | None = typer.Option(
+        None,
+        "--blocklist",
+        "-b",
+        help="Enable peer blocklist.",
     ),
 ) -> None:
     """Add a torrent for download via magnet link or .torrent file."""
@@ -329,8 +388,22 @@ def add(
         config.upload_limit = None
     if encryption:
         config.encryption = encryption
+    if port is not None:
+        config.port = port
+    if seed is not None:
+        config.seed = seed
+    if timeout is not None:
+        config.timeout = timeout
+    if sequential is not None:
+        config.sequential = sequential
+    if verify_torrent is not None:
+        config.verify = verify_torrent
+    if blocklist is not None:
+        config.blocklist = blocklist
 
-    _run_download(source, config)
+    # Run the download — exit with error code if it fails
+    if not _run_download(source, config):
+        raise typer.Exit(1)
 
 
 # ── Config subcommands ──
@@ -351,9 +424,11 @@ def config_main(ctx: typer.Context) -> None:
 @config_app.command("set")
 def config_set(
     key: str = typer.Argument(
-        ..., help="Config key (output_dir, download_limit, upload_limit, port, encryption)."
+        ..., help="Config key (output_dir, download_limit, upload_limit, port, encryption, ...)."
     ),
-    value: str = typer.Argument(..., help="New value (use 'none' for unlimited)."),
+    value: str = typer.Argument(
+        ..., help="New value (use 'none' to unset, 'true'/'false' for booleans)."
+    ),
 ) -> None:
     """Set a configuration value."""
     config = load_config()
@@ -363,10 +438,17 @@ def config_set(
         error_panel(f"Unknown key '{key}'. Valid keys: {', '.join(sorted(valid_keys))}")
         raise typer.Exit(1)
 
-    if key == "output_dir":
+    # Boolean fields
+    bool_keys = {"seed", "sequential", "verify", "blocklist"}
+    # Optional int fields (None = off)
+    optional_int_keys = {"download_limit", "upload_limit", "timeout"}
+
+    if key in bool_keys:
+        setattr(config, key, value.lower() in ("true", "yes", "1", "on"))
+    elif key in optional_int_keys:
+        setattr(config, key, None if value.lower() in ("none", "off", "") else int(value))
+    elif key == "output_dir":
         config.output_dir = value
-    elif key in ("download_limit", "upload_limit"):
-        setattr(config, key, None if value.lower() in ("none", "unlimited", "") else int(value))
     elif key == "port":
         config.port = int(value)
     elif key == "encryption":
@@ -409,28 +491,38 @@ def demo() -> None:
     console.print(f"[{DIM}]{'─' * 50}[/]\n")
     time.sleep(0.8)
 
-    console.print(f"[{ACCENT}]1/5[/] [bold]Banner[/]\n")
+    console.print(f"[{ACCENT}]1/6[/] [bold]Banner[/]\n")
     show_banner()
     time.sleep(1.5)
 
-    console.print(f"\n[{ACCENT}]2/5[/] [bold]Interactive Menu[/]\n")
+    console.print(f"\n[{ACCENT}]2/6[/] [bold]Interactive Menu[/]\n")
     _demo_menu()
     time.sleep(1.2)
 
-    console.print(f"\n[{ACCENT}]3/5[/] [bold]Torrent Details Panel[/]\n")
+    console.print(f"\n[{ACCENT}]3/6[/] [bold]Torrent Details Panel[/]\n")
     torrent_details_panel(
         "Ubuntu 24.04.1 LTS (Desktop, 64-bit)",
         "magnet",
         "magnet:?xt=urn:btih:a1b2c3d4e5...&dn=Ubuntu+24.04.1+LTS",
         "~/Downloads",
+        "ubuntu-24041-lts-desktop-64-bit.zip",
     )
     time.sleep(1.2)
 
-    console.print(f"\n[{ACCENT}]4/5[/] [bold]Download Progress[/]\n")
+    console.print(f"\n[{ACCENT}]4/6[/] [bold]Download Progress[/]\n")
+    show_controls_hint()
     show_mock_progress(duration=4.0)
     time.sleep(0.8)
 
-    console.print(f"\n[{ACCENT}]5/5[/] [bold]Status Table[/]\n")
+    console.print(f"\n[{ACCENT}]5/6[/] [bold]Celebration Effect[/]\n")
+    celebrate()
+    download_complete_panel(
+        "~/Downloads/ubuntu-24041-lts-desktop-64-bit.zip",
+        "2.4 GB",
+    )
+    time.sleep(1.2)
+
+    console.print(f"\n[{ACCENT}]6/6[/] [bold]Status Table[/]\n")
     _demo_status_table()
     time.sleep(0.5)
 
