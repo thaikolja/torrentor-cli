@@ -89,16 +89,21 @@ def _extract_name(source: str) -> str:
     return source.rsplit("/", maxsplit=1)[-1]
 
 
-# The core download-and-postprocess pipeline — returns True on success, False on failure
-def _run_download(source: str, config: TorrentorConfig) -> bool:
-    """Validate source, show details, run engine with progress, zip, celebrate. Returns success."""
+# The core download-and-postprocess pipeline
+# Returns (success, engine) — engine is kept alive on failure so caller can manage the cache
+def _run_download(
+    source: str,
+    config: TorrentorConfig,
+    resume_dir: Path | None = None,
+) -> tuple[bool, TransmissionEngine | None]:
+    """Download, zip, celebrate. Returns (True, None) on success, (False, engine) on failure."""
     name = _extract_name(source)
     source_type = validate_source(source)
 
     # Bail early if the source is neither a magnet link nor a .torrent file
     if source_type is None:
         error_panel("Invalid source. Provide a magnet link or path to a .torrent file.")
-        return False
+        return False, None
 
     # Predict what the .zip will be called so we can show it up front
     zip_name = predict_zip_filename(name)
@@ -110,44 +115,57 @@ def _run_download(source: str, config: TorrentorConfig) -> bool:
     # Set up the engine and a progress bar
     engine = TransmissionEngine(config)
     progress = create_download_progress()
-    task_id = None
+
+    # Show the spinner immediately with a "Connecting..." label
+    task_label = name if len(name) <= 30 else name[:27] + "..."
+    task_id: int | None = None
 
     # This callback gets called by the engine on every progress update from transmission-cli
     def on_progress(info: dict) -> None:
         nonlocal task_id
         pct = info.get("progress", 0.0)
+        fields = {
+            "down": info.get("down_speed", "—"),
+            "up": info.get("up_speed", "—"),
+            "peers": info.get("peers", 0),
+        }
         if task_id is None:
-            task_id = progress.add_task(
-                name if len(name) <= 30 else name[:27] + "...",
-                total=100,
-                completed=pct,
-                down=info.get("down_speed", "—"),
-                up=info.get("up_speed", "—"),
-                peers=info.get("peers", 0),
-            )
+            # First progress update — replace the connecting task with real data
+            task_id = progress.add_task(task_label, total=100, completed=pct, **fields)
         else:
-            progress.update(
-                task_id,
-                completed=pct,
-                down=info.get("down_speed", "—"),
-                up=info.get("up_speed", "—"),
-                peers=info.get("peers", 0),
-            )
+            progress.update(task_id, completed=pct, **fields)
 
-    # Show keyboard shortcuts and start the download
+    # Show keyboard shortcuts and start the download with spinner visible from the start
     show_controls_hint()
     try:
         with progress:
-            download_dir = engine.download(source, on_progress=on_progress)
+            # Add an initial "connecting" task so the spinner shows right away
+            connecting_id = progress.add_task(
+                "Connecting...", total=None, down="—", up="—", peers=0
+            )
+
+            # Wrap on_progress to remove the connecting task on first real update
+            first_update = True
+
+            def _on_progress_wrapper(info: dict) -> None:
+                nonlocal first_update
+                if first_update:
+                    progress.remove_task(connecting_id)
+                    first_update = False
+                on_progress(info)
+
+            download_dir = engine.download(
+                source, on_progress=_on_progress_wrapper, resume_dir=resume_dir
+            )
     except KeyboardInterrupt:
+        # Stop the process but keep the cache for potential resume
         console.print()
-        info_panel("Interrupted", "Download cancelled. Temp files cleaned up.")
-        return False
+        info_panel("Interrupted", "Download paused. Cache is preserved.")
+        return False, engine
     except Exception as exc:
-        engine.abort()
         console.print()
         error_panel(f"Download failed: {exc}")
-        return False
+        return False, engine
 
     console.print()
 
@@ -160,13 +178,13 @@ def _run_download(source: str, config: TorrentorConfig) -> bool:
         download_complete_panel(str(zip_path), zip_size)
     except Exception as exc:
         error_panel(f"Post-processing failed: {exc}")
-        return False
+        return False, engine
     finally:
         if engine.temp_dir:
             cleanup(engine.temp_dir)
 
     console.print()
-    return True
+    return True, None
 
 
 # ── Default callback: when no subcommand is given, launch interactive mode ──
@@ -208,9 +226,9 @@ def _interactive_mode() -> None:
             _quit()
 
 
-# Interactive "add a torrent" flow with retry support
+# Interactive "add a torrent" flow with cancel/retry + cache support
 def _interactive_add() -> None:
-    """Walk the user through choosing source type, entering the source, and downloading."""
+    """Walk the user through choosing source type, entering the source, and downloading with retry."""
     console.print()
     try:
         method = add_torrent_menu()
@@ -232,25 +250,40 @@ def _interactive_add() -> None:
     if not source:
         return
 
-    # Try the download — if it fails, offer retry / back / quit
+    # Download with retry loop — cache is preserved between attempts
     config = load_config()
+    resume_dir: Path | None = None
+
     while True:
-        success = _run_download(source, config)
+        success, engine = _run_download(source, config, resume_dir=resume_dir)
         if success:
             break
 
-        # Download failed — ask the user what to do next
+        # Download interrupted or failed — show the cancel/retry menu
         console.print()
         try:
             action = post_download_menu()
         except (KeyboardInterrupt, EOFError):
+            # Emergency exit — clean up everything
+            if engine:
+                engine.abort()
             return
 
-        if action == "retry":
-            continue
-        elif action == "quit":
-            _quit()
+        if action == "retry_cache":
+            # Reuse the existing temp dir so transmission can resume partial data
+            resume_dir = engine.temp_dir if engine else None
+        elif action == "retry":
+            # Start fresh — nuke the old cache first
+            if engine:
+                engine.abort()
+            resume_dir = None
+        elif action == "cancel_keep":
+            # Keep the cache on disk for later
+            return
         else:
+            # "cancel" — delete cache and go back
+            if engine:
+                engine.abort()
             return
 
 
@@ -401,8 +434,11 @@ def add(
     if blocklist is not None:
         config.blocklist = blocklist
 
-    # Run the download — exit with error code if it fails
-    if not _run_download(source, config):
+    # Run the download — in CLI mode, always clean up cache on failure and exit
+    success, engine = _run_download(source, config)
+    if not success:
+        if engine:
+            engine.abort()
         raise typer.Exit(1)
 
 
@@ -424,7 +460,8 @@ def config_main(ctx: typer.Context) -> None:
 @config_app.command("set")
 def config_set(
     key: str = typer.Argument(
-        ..., help="Config key (output_dir, download_limit, upload_limit, port, encryption, ...)."
+        ...,
+        help="Config key (output_dir, download_limit, upload_limit, port, encryption, ...).",
     ),
     value: str = typer.Argument(
         ..., help="New value (use 'none' to unset, 'true'/'false' for booleans)."

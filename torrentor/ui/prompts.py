@@ -69,16 +69,17 @@ def file_input() -> str:
     ).execute()
 
 
-# Shown after a download fails — lets the user retry or bail
+# Shown after a download is interrupted or fails — retry/cancel with cache control
 def post_download_menu() -> str:
-    """Ask the user what to do after a failed download: retry, go back, or quit."""
+    """Ask the user what to do next: retry (fresh or from cache), cancel (keep or delete cache)."""
     return inquirer.select(
         message="What would you like to do?",
         choices=[
-            {"name": "  Retry download", "value": "retry"},
-            {"name": "  Back to menu", "value": "back"},
+            {"name": "  Retry (continue from cache)", "value": "retry_cache"},
+            {"name": "  Retry", "value": "retry"},
             Separator(),
-            {"name": "  Quit", "value": "quit"},
+            {"name": "  Cancel (keep cache)", "value": "cancel_keep"},
+            {"name": "  Cancel", "value": "cancel"},
         ],
         style=INQUIRER_STYLE,
         pointer="❯",
