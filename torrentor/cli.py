@@ -114,6 +114,17 @@ def _extract_name(source: str) -> str:
     return source.rsplit("/", maxsplit=1)[-1]
 
 
+# Check if an engine's cache actually contains downloaded data
+def _has_cache_data(engine: TransmissionEngine | None) -> bool:
+    """Return True if the engine has a temp dir with actual files in it."""
+    if engine is None or engine.temp_dir is None:
+        return False
+    data_dir = engine.temp_dir / "data"
+    if not data_dir.exists():
+        return False
+    return any(f for f in data_dir.iterdir() if not f.name.startswith("."))
+
+
 # Valid boolean string values the user can pass to TRUE/FALSE flags
 _BOOL_TRUE = {"true", "yes", "1", "on"}
 _BOOL_FALSE = {"false", "no", "0", "off"}
@@ -139,7 +150,7 @@ def _apply_flags(
     save_to: str | None,
     max_download: int | None,
     max_upload: int | None,
-    no_limit: bool,
+    no_limit: str | None,
     timeout: int | None,
     seed: str | None,
     in_order: str | None,
@@ -155,7 +166,7 @@ def _apply_flags(
         config.download_limit = max_download
     if max_upload is not None:
         config.upload_limit = max_upload
-    if no_limit:
+    if no_limit is not None and _parse_bool(no_limit, "--no-limit"):
         config.download_limit = None
         config.upload_limit = None
     if timeout is not None:
@@ -301,19 +312,20 @@ def main(
         "--save-to",
         "-o",
         metavar="PATH",
-        help="Where to save the downloaded file.",
+        help="Where to save the downloaded file (Default: ~/Downloads)",
     ),
-    no_limit: bool = typer.Option(
-        False,
+    no_limit: str | None = typer.Option(
+        None,
         "--no-limit",
         "-n",
-        help="Download and upload at full speed.",
+        metavar="TRUE/FALSE",
+        help="Download and upload at full speed (Default: false)",
     ),
     version: bool = typer.Option(
         False,
         "--version",
         "-V",
-        help="Show version and exit.",
+        help="Show version and exit",
         callback=_version_callback,
         is_eager=True,
     ),
@@ -323,7 +335,7 @@ def main(
         "--max-download",
         "-l",
         metavar="NUMBER",
-        help="Limit how fast the file downloads (kB/s).",
+        help="Limit how fast the file downloads, in kB/s (Default: no limit)",
         rich_help_panel="Optional",
     ),
     max_upload: int | None = typer.Option(
@@ -331,7 +343,7 @@ def main(
         "--max-upload",
         "-u",
         metavar="NUMBER",
-        help="Limit how fast you share with others (kB/s).",
+        help="Limit how fast you share with others, in kB/s (Default: no limit)",
         rich_help_panel="Optional",
     ),
     timeout: int | None = typer.Option(
@@ -339,7 +351,7 @@ def main(
         "--timeout",
         "-t",
         metavar="NUMBER",
-        help="Stop if the download takes longer than this (seconds).",
+        help="Stop if the download takes longer than this, in seconds (Default: none)",
         rich_help_panel="Optional",
     ),
     # ── Advanced ──
@@ -348,7 +360,7 @@ def main(
         "--seed",
         "-s",
         metavar="TRUE/FALSE",
-        help="Keep sharing the file after it finishes downloading.",
+        help="Keep sharing the file after it finishes downloading (Default: false)",
         rich_help_panel="Advanced",
     ),
     in_order: str | None = typer.Option(
@@ -356,7 +368,7 @@ def main(
         "--in-order",
         "-q",
         metavar="TRUE/FALSE",
-        help="Download from beginning to end instead of jumping around.",
+        help="Download from beginning to end instead of jumping around (Default: false)",
         rich_help_panel="Advanced",
     ),
     check_file: str | None = typer.Option(
@@ -364,7 +376,7 @@ def main(
         "--check",
         "-y",
         metavar="TRUE/FALSE",
-        help="Double-check the downloaded file for errors.",
+        help="Double-check the downloaded file for errors (Default: false)",
         rich_help_panel="Advanced",
     ),
     port: int | None = typer.Option(
@@ -372,7 +384,7 @@ def main(
         "--port",
         "-p",
         metavar="NUMBER",
-        help="Network port for connecting to other peers.",
+        help="Network port for connecting to other peers (Default: 51413)",
         rich_help_panel="Advanced",
     ),
     encryption: str | None = typer.Option(
@@ -380,7 +392,7 @@ def main(
         "--encryption",
         "-e",
         metavar="MODE",
-        help="Connection privacy: required, preferred, or tolerated.",
+        help="Connection privacy: required, preferred, or tolerated (Default: preferred)",
         rich_help_panel="Advanced",
     ),
     blocklist: str | None = typer.Option(
@@ -388,7 +400,7 @@ def main(
         "--blocklist",
         "-b",
         metavar="TRUE/FALSE",
-        help="Block known bad peers from connecting.",
+        help="Block known bad peers from connecting (Default: false)",
         rich_help_panel="Advanced",
     ),
 ) -> None:
@@ -436,7 +448,7 @@ def add(
     save_to: str | None = typer.Option(None, "--save-to", "-o", metavar="PATH"),
     max_download: int | None = typer.Option(None, "--max-download", "-l", metavar="NUMBER"),
     max_upload: int | None = typer.Option(None, "--max-upload", "-u", metavar="NUMBER"),
-    no_limit: bool = typer.Option(False, "--no-limit", "-n"),
+    no_limit: str | None = typer.Option(None, "--no-limit", "-n", metavar="TRUE/FALSE"),
     timeout: int | None = typer.Option(None, "--timeout", "-t", metavar="NUMBER"),
     seed: str | None = typer.Option(None, "--seed", "-s", metavar="TRUE/FALSE"),
     in_order: str | None = typer.Option(None, "--in-order", "-q", metavar="TRUE/FALSE"),
@@ -525,10 +537,11 @@ def _interactive_add() -> None:
         if success:
             break
 
-        # Download interrupted or failed — show the cancel/retry menu
+        # Download interrupted or failed — cache options only shown when data exists
+        has_cache = _has_cache_data(engine)
         console.print()
         try:
-            action = post_download_menu()
+            action = post_download_menu(has_cache=has_cache)
         except (KeyboardInterrupt, EOFError):
             # Emergency exit — clean up everything
             if engine:
