@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from torrentor.ui.theme import CYAN, MAGENTA, SUCCESS, ERROR, WARNING, DIM, ACCENT, console
+from torrentor.ui.theme import ACCENT, CYAN, DIM, ERROR, MAGENTA, SUCCESS, WARNING, console
 
 
 def info_panel(title: str, message: str) -> None:
@@ -98,7 +98,9 @@ def download_complete_panel(zip_path: str, zip_size: str) -> None:
     console.print(panel)
 
 
-def torrent_details_panel(name: str, source_type: str, source: str, output_dir: str | None = None) -> None:
+def torrent_details_panel(
+    name: str, source_type: str, source: str, output_dir: str | None = None
+) -> None:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style=f"bold {ACCENT}")
     table.add_column(style="default")

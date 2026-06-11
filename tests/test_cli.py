@@ -1,0 +1,68 @@
+from typer.testing import CliRunner
+
+from torrentor import __version__
+from torrentor.cli import app
+
+runner = CliRunner()
+
+
+class TestVersion:
+    def test_version_flag(self) -> None:
+        result = runner.invoke(app, ["--version"])
+        assert result.exit_code == 0
+        assert __version__ in result.output
+
+    def test_version_short_flag(self) -> None:
+        result = runner.invoke(app, ["-V"])
+        assert result.exit_code == 0
+        assert "torrentor" in result.output
+
+
+class TestHelp:
+    def test_main_help(self) -> None:
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "add" in result.output
+        assert "config" in result.output
+        assert "demo" in result.output
+
+    def test_add_help(self) -> None:
+        result = runner.invoke(app, ["add", "--help"])
+        assert result.exit_code == 0
+        assert "--output-dir" in result.output
+        assert "--download-limit" in result.output
+        assert "--no-limit" in result.output
+
+    def test_config_help(self) -> None:
+        result = runner.invoke(app, ["config", "--help"])
+        assert result.exit_code == 0
+        assert "set" in result.output
+        assert "reset" in result.output
+        assert "path" in result.output
+
+
+class TestConfigCommands:
+    def test_config_path(self) -> None:
+        result = runner.invoke(app, ["config", "path"])
+        assert result.exit_code == 0
+        assert "config.json" in result.output
+
+    def test_config_show(self) -> None:
+        result = runner.invoke(app, ["config"])
+        assert result.exit_code == 0
+        assert "Output Directory" in result.output
+
+    def test_config_set_invalid_key(self) -> None:
+        result = runner.invoke(app, ["config", "set", "nonexistent", "value"])
+        assert result.exit_code == 1
+
+    def test_config_reset(self) -> None:
+        result = runner.invoke(app, ["config", "reset"])
+        assert result.exit_code == 0
+        assert "reset" in result.output.lower() or "Reset" in result.output
+
+
+class TestAddValidation:
+    def test_add_invalid_source(self) -> None:
+        result = runner.invoke(app, ["add", "not-a-valid-source"])
+        assert result.exit_code == 1

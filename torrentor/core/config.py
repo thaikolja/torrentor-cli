@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "torrentor"
@@ -26,10 +26,9 @@ def load_config() -> TorrentorConfig:
 
     try:
         data = json.loads(CONFIG_FILE.read_text())
-        return TorrentorConfig(**{
-            k: v for k, v in data.items()
-            if k in TorrentorConfig.__dataclass_fields__
-        })
+        return TorrentorConfig(
+            **{k: v for k, v in data.items() if k in TorrentorConfig.__dataclass_fields__}
+        )
     except (json.JSONDecodeError, TypeError):
         config = TorrentorConfig()
         save_config(config)

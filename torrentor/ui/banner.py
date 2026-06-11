@@ -3,7 +3,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from torrentor import __version__
-from torrentor.ui.theme import CYAN, MAGENTA, ACCENT, DIM, console
+from torrentor.ui.theme import ACCENT, CYAN, DIM, MAGENTA, console
 
 LOGO = r"""
 ╺┳╸┏━┓┏━┓┏━┓┏━╸┏┓╻╺┳╸┏━┓┏━┓

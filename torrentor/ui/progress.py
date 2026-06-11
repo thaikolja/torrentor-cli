@@ -1,11 +1,11 @@
 import time
 
 from rich.progress import (
-    Progress,
     BarColumn,
-    TextColumn,
+    Progress,
     SpinnerColumn,
     TaskProgressColumn,
+    TextColumn,
 )
 
 from torrentor.ui.theme import CYAN, SUCCESS, console

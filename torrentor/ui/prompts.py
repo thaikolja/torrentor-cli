@@ -119,7 +119,7 @@ def port_input(current: int) -> int:
         style=INQUIRER_STYLE,
         qmark="",
         amark="",
-        validate=lambda v: v.isdigit() and 1 <= int(v) <= 65535 or "Must be 1-65535",
+        validate=lambda v: (v.isdigit() and 1 <= int(v) <= 65535) or "Must be 1-65535",
         invalid_message="Enter a valid port (1-65535)",
     ).execute()
     return int(value)
