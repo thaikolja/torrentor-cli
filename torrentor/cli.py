@@ -519,10 +519,23 @@ def _interactive_mode() -> None:
 
         if choice == "add":
             _interactive_add()
+        elif choice == "help":
+            _interactive_help()
         elif choice == "settings":
             _interactive_settings()
         elif choice == "quit":
             _quit()
+
+
+# Interactive help — shows the same page as `torrentor -h`
+def _interactive_help() -> None:
+    """Display the full help page (same output as --help)."""
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(app, ["--help"])
+    console.print()
+    console.print(result.output.rstrip())
+    console.print()
 
 
 # Interactive "download a torrent" flow with cancel/retry + cache support

@@ -14,6 +14,7 @@ def main_menu() -> str:
         choices=[
             {"name": "  Download a torrent", "value": "add"},
             Separator(),
+            {"name": "  Help", "value": "help"},
             {"name": "  Settings", "value": "settings"},
             {"name": "  Quit", "value": "quit"},
         ],
