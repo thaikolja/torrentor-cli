@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every `--flag` has a short `-x` equivalent; `-h` works everywhere
 - Every flag shows its input type: PATH, NUMBER, TRUE/FALSE, or MODE
 - `torrentor add` kept as a hidden alias for backward compatibility
-- Input validation on all CLI flags — invalid values show a clear error
+- Input validation on all CLI flags — invalid boolean values show a clear error
 - Interactive settings menu exposes all config fields (seed, timeout, in-order, check, blocklist)
+- Cache-aware retry menu — "continue from cache" and "keep cache" options only appear when data exists
+- CLI flags are per-run only and never save to the config file
+- Every flag shows its type (PATH, NUMBER, TRUE/FALSE, MODE) and default value in `--help`
 - Bold spaced title in the banner for stronger branding

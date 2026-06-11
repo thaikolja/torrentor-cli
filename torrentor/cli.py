@@ -6,6 +6,7 @@ from urllib.parse import unquote_plus
 
 import typer
 from rich.progress import TaskID
+from typer.main import TyperGroup
 
 from torrentor import __author__, __version__
 from torrentor.core.config import CONFIG_FILE, TorrentorConfig, load_config, save_config
@@ -56,9 +57,24 @@ _SLOW_CHECK_DELAY = 90
 # Speed below this (in kB/s) is considered slow
 _SLOW_THRESHOLD_KBPS = 10.0
 
+# Custom group that treats unknown first args as a torrent source, not a subcommand
+class _SourceGroup(TyperGroup):
+    """When the first argument isn't a known command like 'config', pass it through as ctx.args."""
+
+    def resolve_command(self, ctx: typer.Context, args: list[str]) -> tuple:  # type: ignore[override]
+        """Try subcommand matching first; fall through silently if no match."""
+        cmd_name = args[0] if args else None
+        if cmd_name and cmd_name in (self.commands or {}):
+            return super().resolve_command(ctx, args)
+        # Not a known command — stash args for the callback and return no command
+        ctx.args = list(args)
+        return None, None, []
+
+
 # Main Typer app and its nested config sub-app
 app = typer.Typer(
     name="torrentor",
+    cls=_SourceGroup,
     help=(
         "Download torrents from the command line: easy, fast, cross-platform.\n\n"
         "Pass a magnet link or .torrent file (path or URL) to start downloading:\n"
@@ -198,7 +214,9 @@ def _run_download(
 
     # Bail early if the source is neither a magnet link nor a .torrent file
     if source_type is None:
-        error_panel("That doesn't look like a magnet link or a .torrent file.")
+        error_panel(
+            "That doesn't look like a valid magnet link or .torrent file — please try again"
+        )
         return False, None
 
     # Predict what the .zip will be called so we can show it up front
@@ -537,30 +555,42 @@ def _interactive_add() -> None:
         if success:
             break
 
-        # Download interrupted or failed — cache options only shown when data exists
+        # Validation failed (no engine created) — ask for a new source instead of retrying the same one
+        if engine is None:
+            console.print()
+            try:
+                if method == "magnet":
+                    new_source = magnet_input()
+                elif method == "file":
+                    new_source = file_input()
+                else:
+                    return
+            except (KeyboardInterrupt, EOFError):
+                return
+            if not new_source:
+                return
+            source = new_source
+            continue
+
+        # Download actually started but failed — cache options only shown when data exists
         has_cache = _has_cache_data(engine)
         console.print()
         try:
             action = post_download_menu(has_cache=has_cache)
         except (KeyboardInterrupt, EOFError):
-            # Emergency exit — clean up everything
             if engine:
                 engine.abort()
             return
 
         if action == "retry_cache":
-            # Reuse the existing temp dir so transmission can resume partial data
             resume_dir = engine.temp_dir if engine else None
         elif action == "retry":
-            # Start fresh — nuke the old cache first
             if engine:
                 engine.abort()
             resume_dir = None
         elif action == "cancel_keep":
-            # Keep the cache on disk for later
             return
         else:
-            # "cancel" — delete cache and go back
             if engine:
                 engine.abort()
             return

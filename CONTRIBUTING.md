@@ -12,7 +12,7 @@ source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-## Development workflow
+## Development Workflow
 
 1. Create a branch from `main`
 2. Make your changes
@@ -28,7 +28,7 @@ pytest                      # tests
 4. Fix any issues: `ruff check --fix . && ruff format .`
 5. Submit a pull request
 
-## Code style
+## Code Style
 
 - Formatted with **ruff** (line length 100)
 - Type hints on all function signatures (`disallow_untyped_defs`)
@@ -46,7 +46,7 @@ pytest --cov=torrentor --cov-report=term-missing
 
 When adding a feature, add tests for the happy path, edge cases, and error conditions.
 
-## Project structure
+## Project Structure
 
 ```
 torrentor/
@@ -57,7 +57,7 @@ torrentor/
 tests/            # pytest test suite
 ```
 
-## Cross-platform notes
+## Cross-Platform Notes
 
 - Config path uses `%APPDATA%` on Windows, `~/.config` on Unix
 - Process termination uses `process.terminate()` (works on all OSes)

@@ -14,7 +14,7 @@ Download [torrent](https://en.wikipedia.org/wiki/BitTorrent) files from your ter
  ╹ ┗━┛╹┗╸╹┗╸┗━╸╹ ╹ ╹ ┗━┛╹┗╸
 ```
 
-## What it does
+## What It Does
 
 1. You give it a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), a [`.torrent` file](https://en.wikipedia.org/wiki/Torrent_file), or a URL to one
 2. It downloads the file using [`transmission-cli`](https://transmissionbt.com/) in the background
@@ -22,12 +22,12 @@ Download [torrent](https://en.wikipedia.org/wiki/BitTorrent) files from your ter
 4. It packs everything into a `.zip` file with a clean, [URL-friendly filename](https://en.wikipedia.org/wiki/Clean_URL#Slug)
 5. The `.zip` is saved to your chosen folder, and the temp files are cleaned up
 
-## What you need
+## What You Need
 
 - **Python 3.10 or newer**: [download here](https://www.python.org/downloads/) if you don't have it
 - **transmission-cli**: this is the download engine that runs in the background
 
-### Installing transmission-cli
+### Installing Transmission-CLI
 
 <details>
 <summary><strong>macOS</strong></summary>
@@ -85,9 +85,9 @@ Or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Sub
 
 </details>
 
-## Installing torrentor
+## Installing Torrentor
 
-### With pipx (recommended)
+### With Pipx (Recommended)
 
 [pipx](https://pipx.pypa.io/) installs torrentor in its own isolated environment so it doesn't interfere with anything else on your system.
 
@@ -114,14 +114,14 @@ Then install torrentor:
 pipx install torrentor
 ```
 
-### With pip
+### With Pip
 
 ```bash
 # Install directly from the repository
 pip install git+https://github.com/thaikolja/torrentor-cli.git
 ```
 
-### From source
+### From Source
 
 ```bash
 # Clone the repository
@@ -142,11 +142,11 @@ pip install -e .
 
 After installing, the `torrentor` command is available in your terminal.
 
-## How to use it
+## How to Use It
 
 There are two ways: **interactive mode** (guided step-by-step) or **direct mode** (one command).
 
-### Interactive mode (easiest)
+### Interactive Mode (Easiest)
 
 Just type:
 
@@ -157,7 +157,7 @@ torrentor
 
 You'll see a menu where you can pick what to do: download a torrent, change your settings, or quit. Everything is guided.
 
-### Direct mode (one command)
+### Direct Mode (One Command)
 
 Pass a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), a `.torrent` file path, or a URL:
 
@@ -175,7 +175,7 @@ torrentor "https://example.com/file.torrent"
 torrentor "magnet:?xt=urn:btih:..." --save-to ~/Movies --max-download 5000
 ```
 
-### All available flags
+### All Available Flags
 
 Everything below is visible when you run `torrentor -h`. No need to dig into subcommands.
 
@@ -205,7 +205,7 @@ Everything below is visible when you run `torrentor -h`. No need to dig into sub
 | `--encryption`    | `-e`  | MODE       | Set [connection privacy](https://en.wikipedia.org/wiki/Transport_Layer_Security): `required`, `preferred`, or `tolerated` |
 | `--blocklist`     | `-b`  | TRUE/FALSE | Block known bad peers from connecting to you                                              |
 
-### Managing your settings
+### Managing Your Settings
 
 Your settings are remembered between sessions. You can view and change them:
 
@@ -234,7 +234,7 @@ Your settings are saved to a file on your computer:
 - **macOS / Linux**: `~/.config/torrentor/config.json`
 - **Windows**: `%APPDATA%\torrentor\config.json`
 
-## What happens when you download
+## What Happens When You Download
 
 Here's what torrentor does behind the scenes:
 
@@ -261,7 +261,7 @@ If the download seems slow, torrentor will let you know after about a minute and
 
 If something goes wrong (or you press `Ctrl+C`), you can **retry from where you left off**: your progress is saved.
 
-## Full command reference
+## Full Command Reference
 
 ```bash
 # Start interactive mode
@@ -292,7 +292,7 @@ torrentor -V
 torrentor -h
 ```
 
-## For developers
+## For Developers
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, code style, and testing.
 
