@@ -1,0 +1,17 @@
+[project]
+name = "torrentor"
+version = "1.0.0"
+description = "Download torrents from the command line with ease."
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "InquirerPy>=0.3.4",
+]
+
+[project.scripts]
+torrentor = "torrentor.cli:app"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
