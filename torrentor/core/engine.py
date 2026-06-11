@@ -79,6 +79,18 @@ def parse_speed_kbps(speed_str: str) -> float:
     return value * multipliers.get(unit, 1.0)
 
 
+# Format a kB/s value into the most readable unit (auto-scales as speed changes)
+def format_speed(kbps: float) -> str:
+    """Convert a kB/s value to the best human-readable unit (B/s, kB/s, MB/s, GB/s)."""
+    if kbps < 1:
+        return f"{kbps * 1024:.0f} B/s"
+    if kbps < 1024:
+        return f"{kbps:.1f} kB/s" if kbps < 100 else f"{kbps:.0f} kB/s"
+    if kbps < 1024 * 1024:
+        return f"{kbps / 1024:.1f} MB/s"
+    return f"{kbps / (1024 * 1024):.1f} GB/s"
+
+
 class TransmissionEngine:
     """Manages a transmission-cli subprocess: start, monitor progress, stop on completion."""
 

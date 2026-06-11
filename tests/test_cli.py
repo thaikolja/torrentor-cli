@@ -23,35 +23,45 @@ class TestVersion:
 
 
 class TestHelp:
-    """Check that --help and -h list all expected commands and flags."""
+    """Check that -h shows all flag sections and commands."""
 
     def test_main_help(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "add" in result.output
         assert "config" in result.output
+        assert "--save-to" in result.output
 
     def test_main_help_short(self) -> None:
         result = runner.invoke(app, ["-h"])
         assert result.exit_code == 0
-        assert "add" in result.output
+        assert "config" in result.output
 
-    def test_add_help(self) -> None:
-        result = runner.invoke(app, ["add", "--help"])
+    def test_main_help_shows_all_sections(self) -> None:
+        result = runner.invoke(app, ["-h"])
+        assert result.exit_code == 0
+        assert "Options" in result.output
+        assert "Optional" in result.output
+        assert "Advanced" in result.output
+
+    def test_main_help_shows_all_flags(self) -> None:
+        result = runner.invoke(app, ["-h"])
         assert result.exit_code == 0
         assert "--save-to" in result.output
         assert "--max-download" in result.output
+        assert "--max-upload" in result.output
         assert "--no-limit" in result.output
         assert "--timeout" in result.output
-
-    def test_add_help_advanced_section(self) -> None:
-        result = runner.invoke(app, ["add", "--help"])
-        assert result.exit_code == 0
-        assert "Advanced" in result.output
         assert "--seed" in result.output
         assert "--in-order" in result.output
         assert "--check" in result.output
+        assert "--port" in result.output
+        assert "--encryption" in result.output
         assert "--blocklist" in result.output
+
+    def test_integer_shown_as_number(self) -> None:
+        result = runner.invoke(app, ["-h"])
+        assert "NUMBER" in result.output
+        assert "INTEGER" not in result.output
 
     def test_config_help(self) -> None:
         result = runner.invoke(app, ["config", "--help"])
@@ -84,8 +94,8 @@ class TestConfigCommands:
 
 
 class TestAddValidation:
-    """Check that invalid sources are rejected with a non-zero exit code."""
+    """Check that invalid sources are rejected."""
 
-    def test_add_invalid_source(self) -> None:
+    def test_add_invalid_source_via_hidden_alias(self) -> None:
         result = runner.invoke(app, ["add", "not-a-valid-source"])
         assert result.exit_code == 1

@@ -5,6 +5,7 @@ from unittest.mock import patch
 from torrentor.core.config import TorrentorConfig
 from torrentor.core.engine import (
     TransmissionEngine,
+    format_speed,
     is_transmission_installed,
     parse_progress,
     parse_speed_kbps,
@@ -153,3 +154,24 @@ class TestParseSpeedKbps:
 
     def test_garbage(self) -> None:
         assert parse_speed_kbps("hello") == 0.0
+
+
+class TestFormatSpeed:
+    """Verify that format_speed() auto-scales kB/s values to the right unit."""
+
+    def test_bytes(self) -> None:
+        assert "B/s" in format_speed(0.5)
+
+    def test_kilobytes(self) -> None:
+        assert "kB/s" in format_speed(500)
+
+    def test_megabytes(self) -> None:
+        result = format_speed(1536)
+        assert "MB/s" in result
+        assert "1.5" in result
+
+    def test_gigabytes(self) -> None:
+        assert "GB/s" in format_speed(1024 * 1024)
+
+    def test_zero(self) -> None:
+        assert "0" in format_speed(0)

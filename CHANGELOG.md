@@ -10,17 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Interactive mode with guided menus (just run `torrentor`)
-- Direct mode via `torrentor add <magnet|file>` with flags
+- Direct mode: `torrentor <magnet link or .torrent file>` with flags
 - Magnet link and `.torrent` file support
 - Automatic stop after download completes (no seeding by default)
 - Post-download packaging: zip with light compression + clean filenames
 - Persistent settings at `~/.config/torrentor/config.json` (macOS/Linux) or `%APPDATA%\torrentor\config.json` (Windows)
-- `torrentor config` command to view, change, reset, and locate settings
-- Cancel/retry with cache support — resume interrupted downloads
-- Confetti celebration on download completion
-- Spinning progress indicator with live speed, upload, and peer count
-- `transmission-cli` dependency check with OS-specific install instructions
+- `torrentor config` subcommand to view, change, reset, and locate settings
+- Cancel/retry with cache support: resume interrupted downloads
+- Confetti celebration effect on download completion
+- Spinning progress indicator with live speed (auto-scaling B/s → kB/s → MB/s), upload, and peer count
+- Slow-download notification after 90 seconds if speed is below 10 kB/s
+- `transmission-cli` dependency check with OS-specific install instructions (macOS, Linux, Windows)
 - Cross-platform support: macOS, Linux, and Windows
-- Main flags: `--save-to`, `--max-download`, `--max-upload`, `--no-limit`, `--timeout`
-- Advanced flags: `--seed`, `--in-order`, `--check`, `--port`, `--encryption`, `--blocklist`
+- All flags visible in `torrentor -h` across three sections: Options, Optional, Advanced
 - Every `--flag` has a short `-x` equivalent; `-h` works everywhere
+- Every flag shows its input type: PATH, NUMBER, TRUE/FALSE, or MODE
+- `torrentor add` kept as a hidden alias for backward compatibility
+- Input validation on all CLI flags — invalid values show a clear error
+- Interactive settings menu exposes all config fields (seed, timeout, in-order, check, blocklist)
+- Bold spaced title in the banner for stronger branding

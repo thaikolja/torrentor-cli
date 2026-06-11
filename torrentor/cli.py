@@ -1,4 +1,4 @@
-"""Typer CLI app — commands: add, config (set/reset/path), and an interactive mode."""
+"""Typer CLI app: torrentor <source> downloads directly, torrentor launches interactive mode."""
 
 import time
 from pathlib import Path
@@ -7,9 +7,14 @@ from urllib.parse import unquote_plus
 import typer
 from rich.progress import TaskID
 
-from torrentor import __version__
+from torrentor import __author__, __version__
 from torrentor.core.config import CONFIG_FILE, TorrentorConfig, load_config, save_config
-from torrentor.core.engine import TransmissionEngine, is_transmission_installed, parse_speed_kbps
+from torrentor.core.engine import (
+    TransmissionEngine,
+    format_speed,
+    is_transmission_installed,
+    parse_speed_kbps,
+)
 from torrentor.core.postprocess import (
     cleanup,
     format_size,
@@ -41,6 +46,8 @@ from torrentor.ui.prompts import (
     post_download_menu,
     settings_menu,
     speed_limit_input,
+    timeout_input,
+    toggle_input,
 )
 from torrentor.ui.theme import CYAN, DIM, console
 
@@ -52,12 +59,20 @@ _SLOW_THRESHOLD_KBPS = 10.0
 # Main Typer app and its nested config sub-app
 app = typer.Typer(
     name="torrentor",
-    help="Download torrents from the command line: easy, fast, cross-platform.",
-    epilog="Run [bold]torrentor add -h[/bold] to see all download flags.",
+    help=(
+        "Download torrents from the command line: easy, fast, cross-platform.\n\n"
+        "Pass a magnet link or .torrent file (path or URL) to start downloading:\n"
+        '  torrentor "magnet:?xt=urn:btih:..."\n\n'
+        "Run without arguments for interactive mode."
+    ),
     add_completion=False,
     rich_markup_mode="rich",
     no_args_is_help=False,
-    context_settings={"help_option_names": ["-h", "--help"]},
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+        "allow_extra_args": True,
+        "allow_interspersed_args": False,
+    },
 )
 
 config_app = typer.Typer(
@@ -68,11 +83,15 @@ config_app = typer.Typer(
 app.add_typer(config_app, name="config")
 
 
+# ── Helpers ──
+
+
 # When the user passes --version / -V, print the version and bail
 def _version_callback(value: bool) -> None:
     """Print the current version and exit."""
     if value:
         console.print(f"[bold {CYAN}]torrentor[/] [dim]v{__version__}[/]")
+        console.print(f"[dim]by {__author__}[/]")
         raise typer.Exit()
 
 
@@ -93,6 +112,66 @@ def _extract_name(source: str) -> str:
         raw = source.split("&dn=")[-1].split("&")[0]
         return unquote_plus(raw)
     return source.rsplit("/", maxsplit=1)[-1]
+
+
+# Valid boolean string values the user can pass to TRUE/FALSE flags
+_BOOL_TRUE = {"true", "yes", "1", "on"}
+_BOOL_FALSE = {"false", "no", "0", "off"}
+
+
+# Parse a "true"/"false" string flag into a Python bool, with validation
+def _parse_bool(value: str, flag_name: str = "") -> bool:
+    """Turn a CLI string like 'true'/'false' into a bool. Exits with an error for invalid input."""
+    lower = value.lower()
+    if lower in _BOOL_TRUE:
+        return True
+    if lower in _BOOL_FALSE:
+        return False
+    hint = f" for {flag_name}" if flag_name else ""
+    error_panel(f"'{value}' is not a valid value{hint}. Use true or false.")
+    raise typer.Exit(1)
+
+
+# Apply CLI flag overrides to a config object
+def _apply_flags(
+    config: TorrentorConfig,
+    *,
+    save_to: str | None,
+    max_download: int | None,
+    max_upload: int | None,
+    no_limit: bool,
+    timeout: int | None,
+    seed: str | None,
+    in_order: str | None,
+    check_file: str | None,
+    port: int | None,
+    encryption: str | None,
+    blocklist: str | None,
+) -> None:
+    """Merge CLI flags into a config, skipping anything the user didn't pass."""
+    if save_to:
+        config.output_dir = save_to
+    if max_download is not None:
+        config.download_limit = max_download
+    if max_upload is not None:
+        config.upload_limit = max_upload
+    if no_limit:
+        config.download_limit = None
+        config.upload_limit = None
+    if timeout is not None:
+        config.timeout = timeout
+    if seed is not None:
+        config.seed = _parse_bool(seed, "--seed")
+    if in_order is not None:
+        config.in_order = _parse_bool(in_order, "--in-order")
+    if check_file is not None:
+        config.check = _parse_bool(check_file, "--check")
+    if port is not None:
+        config.port = port
+    if encryption:
+        config.encryption = encryption
+    if blocklist is not None:
+        config.blocklist = _parse_bool(blocklist, "--blocklist")
 
 
 # The core download-and-postprocess pipeline
@@ -134,11 +213,16 @@ def _run_download(
     def on_progress(info: dict) -> None:
         nonlocal task_id, slow_warned
         pct = info.get("progress", 0.0)
+
+        # Parse raw speed strings and re-format with auto-scaling units
+        down_kbps = parse_speed_kbps(info.get("down_speed", "—"))
+        up_kbps = parse_speed_kbps(info.get("up_speed", "—"))
         fields = {
-            "down": info.get("down_speed", "—"),
-            "up": info.get("up_speed", "—"),
+            "down": format_speed(down_kbps),
+            "up": format_speed(up_kbps),
             "peers": info.get("peers", 0),
         }
+
         if task_id is None:
             # First progress update — replace the connecting task with real data
             task_id = progress.add_task(task_label, total=100, completed=pct, **fields)
@@ -147,11 +231,13 @@ def _run_download(
 
         # After 90 seconds, check if the download is unusually slow
         elapsed = time.monotonic() - download_start
-        if not slow_warned and elapsed > _SLOW_CHECK_DELAY:
-            speed = parse_speed_kbps(info.get("down_speed", "—"))
-            if speed < _SLOW_THRESHOLD_KBPS or pct < 1.0:
-                slow_download_warning()
-                slow_warned = True
+        if (
+            not slow_warned
+            and elapsed > _SLOW_CHECK_DELAY
+            and (down_kbps < _SLOW_THRESHOLD_KBPS or pct < 1.0)
+        ):
+            slow_download_warning()
+            slow_warned = True
 
     # Show controls hint and start the download with spinner visible from the start
     show_controls_hint()
@@ -205,10 +291,24 @@ def _run_download(
     return True, None
 
 
-# ── Default callback: when no subcommand is given, launch interactive mode ──
+# ── Main callback: handles both direct download and interactive mode ──
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
+    # ── Options (vital) ──
+    save_to: str | None = typer.Option(
+        None,
+        "--save-to",
+        "-o",
+        metavar="PATH",
+        help="Where to save the downloaded file.",
+    ),
+    no_limit: bool = typer.Option(
+        False,
+        "--no-limit",
+        "-n",
+        help="Download and upload at full speed.",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -217,12 +317,160 @@ def main(
         callback=_version_callback,
         is_eager=True,
     ),
+    # ── Optional ──
+    max_download: int | None = typer.Option(
+        None,
+        "--max-download",
+        "-l",
+        metavar="NUMBER",
+        help="Limit how fast the file downloads (kB/s).",
+        rich_help_panel="Optional",
+    ),
+    max_upload: int | None = typer.Option(
+        None,
+        "--max-upload",
+        "-u",
+        metavar="NUMBER",
+        help="Limit how fast you share with others (kB/s).",
+        rich_help_panel="Optional",
+    ),
+    timeout: int | None = typer.Option(
+        None,
+        "--timeout",
+        "-t",
+        metavar="NUMBER",
+        help="Stop if the download takes longer than this (seconds).",
+        rich_help_panel="Optional",
+    ),
+    # ── Advanced ──
+    seed: str | None = typer.Option(
+        None,
+        "--seed",
+        "-s",
+        metavar="TRUE/FALSE",
+        help="Keep sharing the file after it finishes downloading.",
+        rich_help_panel="Advanced",
+    ),
+    in_order: str | None = typer.Option(
+        None,
+        "--in-order",
+        "-q",
+        metavar="TRUE/FALSE",
+        help="Download from beginning to end instead of jumping around.",
+        rich_help_panel="Advanced",
+    ),
+    check_file: str | None = typer.Option(
+        None,
+        "--check",
+        "-y",
+        metavar="TRUE/FALSE",
+        help="Double-check the downloaded file for errors.",
+        rich_help_panel="Advanced",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        "-p",
+        metavar="NUMBER",
+        help="Network port for connecting to other peers.",
+        rich_help_panel="Advanced",
+    ),
+    encryption: str | None = typer.Option(
+        None,
+        "--encryption",
+        "-e",
+        metavar="MODE",
+        help="Connection privacy: required, preferred, or tolerated.",
+        rich_help_panel="Advanced",
+    ),
+    blocklist: str | None = typer.Option(
+        None,
+        "--blocklist",
+        "-b",
+        metavar="TRUE/FALSE",
+        help="Block known bad peers from connecting.",
+        rich_help_panel="Advanced",
+    ),
 ) -> None:
-    if ctx.invoked_subcommand is None:
-        _interactive_mode()
+    # If a subcommand was invoked (like "config"), let it handle things
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Pick up the source from any extra positional args (magnet link or .torrent path)
+    source = ctx.args[0] if ctx.args else None
+
+    # Source provided → download directly
+    if source:
+        _require_transmission()
+        show_banner()
+        config = load_config()
+        _apply_flags(
+            config,
+            save_to=save_to,
+            max_download=max_download,
+            max_upload=max_upload,
+            no_limit=no_limit,
+            timeout=timeout,
+            seed=seed,
+            in_order=in_order,
+            check_file=check_file,
+            port=port,
+            encryption=encryption,
+            blocklist=blocklist,
+        )
+        success, engine = _run_download(source, config)
+        if not success:
+            if engine:
+                engine.abort()
+            raise typer.Exit(1)
+        return
+
+    # No source → launch interactive mode
+    _interactive_mode()
 
 
-# ── Interactive loop ──
+# ── Hidden alias: `torrentor add <source>` still works for backward compatibility ──
+@app.command(hidden=True)
+def add(
+    source: str = typer.Argument(..., help="Magnet link, .torrent file path, or URL."),
+    save_to: str | None = typer.Option(None, "--save-to", "-o", metavar="PATH"),
+    max_download: int | None = typer.Option(None, "--max-download", "-l", metavar="NUMBER"),
+    max_upload: int | None = typer.Option(None, "--max-upload", "-u", metavar="NUMBER"),
+    no_limit: bool = typer.Option(False, "--no-limit", "-n"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", metavar="NUMBER"),
+    seed: str | None = typer.Option(None, "--seed", "-s", metavar="TRUE/FALSE"),
+    in_order: str | None = typer.Option(None, "--in-order", "-q", metavar="TRUE/FALSE"),
+    check_file: str | None = typer.Option(None, "--check", "-y", metavar="TRUE/FALSE"),
+    port: int | None = typer.Option(None, "--port", "-p", metavar="NUMBER"),
+    encryption: str | None = typer.Option(None, "--encryption", "-e", metavar="MODE"),
+    blocklist: str | None = typer.Option(None, "--blocklist", "-b", metavar="TRUE/FALSE"),
+) -> None:
+    """Download a torrent (same as: torrentor <source>)."""
+    _require_transmission()
+    show_banner()
+    config = load_config()
+    _apply_flags(
+        config,
+        save_to=save_to,
+        max_download=max_download,
+        max_upload=max_upload,
+        no_limit=no_limit,
+        timeout=timeout,
+        seed=seed,
+        in_order=in_order,
+        check_file=check_file,
+        port=port,
+        encryption=encryption,
+        blocklist=blocklist,
+    )
+    success, engine = _run_download(source, config)
+    if not success:
+        if engine:
+            engine.abort()
+        raise typer.Exit(1)
+
+
+# ── Interactive mode ──
 def _interactive_mode() -> None:
     """Clear screen, show banner, and loop through the main menu until the user quits."""
     _require_transmission()
@@ -330,10 +578,20 @@ def _interactive_settings() -> None:
                 config.download_limit = speed_limit_input("Download speed", config.download_limit)
             elif choice == "upload_limit":
                 config.upload_limit = speed_limit_input("Upload speed", config.upload_limit)
+            elif choice == "timeout":
+                config.timeout = timeout_input(config.timeout)
             elif choice == "port":
                 config.port = port_input(config.port)
             elif choice == "encryption":
                 config.encryption = encryption_select(config.encryption)
+            elif choice == "seed":
+                config.seed = toggle_input("Keep sharing after download", config.seed)
+            elif choice == "in_order":
+                config.in_order = toggle_input("Download in order", config.in_order)
+            elif choice == "check":
+                config.check = toggle_input("Check file for errors", config.check)
+            elif choice == "blocklist":
+                config.blocklist = toggle_input("Block bad peers", config.blocklist)
 
             save_config(config)
             console.print()
@@ -348,124 +606,6 @@ def _quit() -> None:
     console.print()
     console.print(f"[{DIM}]Goodbye![/]")
     raise typer.Exit()
-
-
-# ── CLI command: add ──
-@app.command()
-def add(
-    source: str = typer.Argument(..., help="Magnet link or path to a .torrent file."),
-    # ── Main options ──
-    save_to: str | None = typer.Option(
-        None,
-        "--save-to",
-        "-o",
-        help="Where to save the downloaded file.",
-    ),
-    max_download: int | None = typer.Option(
-        None,
-        "--max-download",
-        "-l",
-        help="Limit how fast the file downloads (kB/s).",
-    ),
-    max_upload: int | None = typer.Option(
-        None,
-        "--max-upload",
-        "-u",
-        help="Limit how fast you share with others (kB/s).",
-    ),
-    no_limit: bool = typer.Option(
-        False,
-        "--no-limit",
-        "-n",
-        help="Download and upload at full speed.",
-    ),
-    timeout: int | None = typer.Option(
-        None,
-        "--timeout",
-        "-t",
-        help="Stop if the download takes longer than this (seconds).",
-    ),
-    # ── Advanced options ──
-    seed: bool | None = typer.Option(
-        None,
-        "--seed",
-        "-s",
-        help="Keep sharing the file after it finishes downloading.",
-        rich_help_panel="Advanced",
-    ),
-    in_order: bool | None = typer.Option(
-        None,
-        "--in-order",
-        "-q",
-        help="Download from beginning to end instead of jumping around.",
-        rich_help_panel="Advanced",
-    ),
-    check_file: bool | None = typer.Option(
-        None,
-        "--check",
-        "-y",
-        help="Double-check the downloaded file for errors.",
-        rich_help_panel="Advanced",
-    ),
-    port: int | None = typer.Option(
-        None,
-        "--port",
-        "-p",
-        help="Network port for connecting to other peers.",
-        rich_help_panel="Advanced",
-    ),
-    encryption: str | None = typer.Option(
-        None,
-        "--encryption",
-        "-e",
-        help="Connection privacy: required, preferred, or tolerated.",
-        rich_help_panel="Advanced",
-    ),
-    blocklist: bool | None = typer.Option(
-        None,
-        "--blocklist",
-        "-b",
-        help="Block known bad peers from connecting.",
-        rich_help_panel="Advanced",
-    ),
-) -> None:
-    """Download a torrent from a magnet link or .torrent file."""
-    _require_transmission()
-    show_banner()
-
-    # Load saved settings, then override with any flags the user passed
-    config = load_config()
-
-    if save_to:
-        config.output_dir = save_to
-    if max_download is not None:
-        config.download_limit = max_download
-    if max_upload is not None:
-        config.upload_limit = max_upload
-    if no_limit:
-        config.download_limit = None
-        config.upload_limit = None
-    if timeout is not None:
-        config.timeout = timeout
-    if seed is not None:
-        config.seed = seed
-    if in_order is not None:
-        config.in_order = in_order
-    if check_file is not None:
-        config.check = check_file
-    if port is not None:
-        config.port = port
-    if encryption:
-        config.encryption = encryption
-    if blocklist is not None:
-        config.blocklist = blocklist
-
-    # Run the download — in CLI mode, always clean up cache on failure and exit
-    success, engine = _run_download(source, config)
-    if not success:
-        if engine:
-            engine.abort()
-        raise typer.Exit(1)
 
 
 # ── Config subcommands ──

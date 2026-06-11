@@ -1,18 +1,21 @@
-"""Renders the gradient-coloured TORRENTOR logo inside a Rich panel."""
+"""Renders the bold TORRENTOR logo inside a Rich panel."""
 
 from rich.align import Align
 from rich.panel import Panel
 from rich.text import Text
 
-from torrentor import __version__
+from torrentor import __author__, __version__
 from torrentor.ui.theme import ACCENT, CYAN, DIM, MAGENTA, console
 
-# The ASCII logo — each character is a Unicode box-drawing glyph
+# The ASCII logo — heavy Unicode box-drawing glyphs
 LOGO = r"""
 ╺┳╸┏━┓┏━┓┏━┓┏━╸┏┓╻╺┳╸┏━┓┏━┓
  ┃ ┃ ┃┣┳┛┣┳┛┣╸ ┃┗┫ ┃ ┃ ┃┣┳┛
  ╹ ┗━┛╹┗╸╹┗╸┗━╸╹ ╹ ╹ ┗━┛╹┗╸
 """.strip("\n")
+
+# Bold spaced title shown above the logo
+TITLE = "T O R R E N T O R"
 
 
 # Apply a cyan-to-magenta gradient to the logo characters
@@ -33,16 +36,21 @@ def _gradient_logo() -> Text:
 
 # Print the full banner to the console
 def show_banner() -> None:
-    """Draw the gradient logo + version + tagline inside a cyan-bordered panel."""
+    """Draw the bold title, gradient logo, version, and author inside a styled panel."""
+    # Bold spaced title at the top
+    title_text = Text(TITLE, style=f"bold {CYAN}", justify="center")
+
     logo = _gradient_logo()
 
-    # Tagline: "v1.0.0  ·  Fast. Simple. Beautiful."
+    # Tagline with version and author
     tagline = Text()
     tagline.append(f"v{__version__}", style=f"bold {CYAN}")
     tagline.append("  ·  ", style=DIM)
-    tagline.append("Fast. Simple. Beautiful.", style=f"italic {DIM}")
+    tagline.append(f"by {__author__}", style=f"italic {DIM}")
 
     content = Text("\n")
+    content.append_text(title_text)
+    content.append("\n\n")
     content.append_text(logo)
     content.append("\n")
     content.append_text(tagline)

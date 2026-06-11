@@ -1,4 +1,5 @@
 [![PyPI Version](https://img.shields.io/pypi/v/torrentor?style=rounded)](https://pypi.org/project/torrentor/)
+[![Release](https://img.shields.io/github/v/release/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/releases)
 [![Python Versions](https://img.shields.io/pypi/pyversions/torrentor?style=rounded&logo=python&logoColor=white)](https://pypi.org/project/torrentor/)
 [![License](https://img.shields.io/github/license/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/blob/main/LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=rounded)](https://github.com/astral-sh/ruff)
@@ -15,7 +16,7 @@ Download [torrent](https://en.wikipedia.org/wiki/BitTorrent) files from your ter
 
 ## What it does
 
-1. You give it a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme) or a [`.torrent` file](https://en.wikipedia.org/wiki/Torrent_file)
+1. You give it a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), a [`.torrent` file](https://en.wikipedia.org/wiki/Torrent_file), or a URL to one
 2. It downloads the file using [`transmission-cli`](https://transmissionbt.com/) in the background
 3. When the download is done, it automatically stops [seeding](https://en.wikipedia.org/wiki/Seeding_(computing)) (sharing)
 4. It packs everything into a `.zip` file with a clean, [URL-friendly filename](https://en.wikipedia.org/wiki/Clean_URL#Slug)
@@ -86,6 +87,42 @@ Or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Sub
 
 ## Installing torrentor
 
+### With pipx (recommended)
+
+[pipx](https://pipx.pypa.io/) installs torrentor in its own isolated environment so it doesn't interfere with anything else on your system.
+
+First, install pipx if you don't have it:
+
+```bash
+# macOS
+brew install pipx
+
+# Linux (Debian / Ubuntu)
+sudo apt install pipx
+
+# Windows (Scoop)
+scoop install pipx
+
+# Or with pip (works everywhere)
+pip install --user pipx
+```
+
+Then install torrentor:
+
+```bash
+# Install torrentor via pipx
+pipx install torrentor
+```
+
+### With pip
+
+```bash
+# Install directly from the repository
+pip install git+https://github.com/thaikolja/torrentor-cli.git
+```
+
+### From source
+
 ```bash
 # Clone the repository
 git clone https://github.com/thaikolja/torrentor-cli.git
@@ -93,17 +130,17 @@ git clone https://github.com/thaikolja/torrentor-cli.git
 # Enter the project folder
 cd torrentor-cli
 
-# Create a virtual environment (isolated Python setup)
+# Create a virtual environment (keeps things isolated)
 python -m venv .venv
 
 # Activate it (on Windows use: .venv\Scripts\activate)
 source .venv/bin/activate
 
-# Install torrentor and all its dependencies
+# Install torrentor
 pip install -e .
 ```
 
-After that, the `torrentor` command is available in your terminal.
+After installing, the `torrentor` command is available in your terminal.
 
 ## How to use it
 
@@ -122,51 +159,51 @@ You'll see a menu where you can pick what to do: download a torrent, change your
 
 ### Direct mode (one command)
 
-If you already have a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), paste it directly:
+Pass a [magnet link](https://en.wikipedia.org/wiki/Magnet_URI_scheme), a `.torrent` file path, or a URL:
 
 ```bash
-# Download a torrent from a magnet link
-torrentor add "magnet:?xt=urn:btih:..."
+# Download from a magnet link
+torrentor "magnet:?xt=urn:btih:..."
+
+# Download from a .torrent file on your computer
+torrentor ./my-file.torrent
+
+# Download from a URL to a .torrent file
+torrentor "https://example.com/file.torrent"
+
+# Download with a custom save location and speed limit
+torrentor "magnet:?xt=urn:btih:..." --save-to ~/Movies --max-download 5000
 ```
 
-Or point to a `.torrent` file on your computer:
+### All available flags
 
-```bash
-# Download a torrent from a .torrent file
-torrentor add ./my-file.torrent
-```
+Everything below is visible when you run `torrentor -h`. No need to dig into subcommands.
 
-### Options you can add
+**Options** (the important ones):
 
-You can add these after the `add` command to change how the download works:
+| Flag              | Short | Type   | What it does                                                   |
+| ----------------- | ----- | ------ | -------------------------------------------------------------- |
+| `--save-to`       | `-o`  | PATH   | Choose where to save the file (default: your Downloads folder) |
+| `--no-limit`      | `-n`  |        | Remove all speed limits                                        |
 
-| Flag              | Short | What it does                                                        |
-| ----------------- | ----- | ------------------------------------------------------------------- |
-| `--save-to`       | `-o`  | Choose where to save the file (default: your Downloads folder)      |
-| `--max-download`  | `-l`  | Limit download speed in kB/s (e.g. `-l 5000` for 5 MB/s)           |
-| `--max-upload`    | `-u`  | Limit upload speed in kB/s                                         |
-| `--no-limit`      | `-n`  | Remove all speed limits                                             |
-| `--timeout`       | `-t`  | Stop the download after this many seconds                           |
+**Optional** (extra control):
 
-**Example** - download a torrent, save it to `~/Movies`, and limit speed to 5 MB/s:
+| Flag              | Short | Type   | What it does                                                   |
+| ----------------- | ----- | ------ | -------------------------------------------------------------- |
+| `--max-download`  | `-l`  | NUMBER | Limit download speed in kB/s (e.g. `-l 5000` for 5 MB/s)      |
+| `--max-upload`    | `-u`  | NUMBER | Limit upload speed in kB/s                                     |
+| `--timeout`       | `-t`  | NUMBER | Stop the download after this many seconds                      |
 
-```bash
-# Download with custom save location and speed limit
-torrentor add "magnet:?xt=urn:btih:..." --save-to ~/Movies --max-download 5000
-```
+**Advanced** (for power users):
 
-### Advanced options
-
-These are for users who know what they're doing. You probably won't need them.
-
-| Flag              | Short | What it does                                                                              |
-| ----------------- | ----- | ----------------------------------------------------------------------------------------- |
-| `--seed`          | `-s`  | Keep [sharing](https://en.wikipedia.org/wiki/Seeding_(computing)) after the download ends |
-| `--in-order`      | `-q`  | Download from start to finish (useful for previewing large files)                         |
-| `--check`         | `-y`  | Double-check the file for errors after downloading                                        |
-| `--port`          | `-p`  | Set the [network port](https://en.wikipedia.org/wiki/Port_(computer_networking)) for peers |
-| `--encryption`    | `-e`  | Set [connection privacy](https://en.wikipedia.org/wiki/Transport_Layer_Security): `required`, `preferred`, or `tolerated` |
-| `--blocklist`     | `-b`  | Block known bad peers from connecting to you                                              |
+| Flag              | Short | Type       | What it does                                                                              |
+| ----------------- | ----- | ---------- | ----------------------------------------------------------------------------------------- |
+| `--seed`          | `-s`  | TRUE/FALSE | Keep [sharing](https://en.wikipedia.org/wiki/Seeding_(computing)) after the download ends |
+| `--in-order`      | `-q`  | TRUE/FALSE | Download from start to finish (useful for previewing large files)                         |
+| `--check`         | `-y`  | TRUE/FALSE | Double-check the file for errors after downloading                                        |
+| `--port`          | `-p`  | NUMBER     | Set the [network port](https://en.wikipedia.org/wiki/Port_(computer_networking)) for peers |
+| `--encryption`    | `-e`  | MODE       | Set [connection privacy](https://en.wikipedia.org/wiki/Transport_Layer_Security): `required`, `preferred`, or `tolerated` |
+| `--blocklist`     | `-b`  | TRUE/FALSE | Block known bad peers from connecting to you                                              |
 
 ### Managing your settings
 
@@ -202,7 +239,7 @@ Your settings are saved to a file on your computer:
 Here's what torrentor does behind the scenes:
 
 ```
-You paste a magnet link or pick a .torrent file
+You paste a magnet link, file path, or URL
         │
         ▼
 transmission-cli downloads the file in the background
@@ -220,6 +257,8 @@ The .zip is moved to your chosen folder
 Temporary files are deleted
 ```
 
+If the download seems slow, torrentor will let you know after about a minute and suggest things to try.
+
 If something goes wrong (or you press `Ctrl+C`), you can **retry from where you left off**: your progress is saved.
 
 ## Full command reference
@@ -228,11 +267,11 @@ If something goes wrong (or you press `Ctrl+C`), you can **retry from where you 
 # Start interactive mode
 torrentor
 
-# Download a torrent
-torrentor add <source>
+# Download a torrent directly
+torrentor "magnet:?xt=urn:btih:..."
 
-# Download with custom options
-torrentor add <source> [options]
+# Download with options
+torrentor ./file.torrent --save-to ~/Movies --max-download 5000
 
 # View your settings
 torrentor config
@@ -249,7 +288,7 @@ torrentor config path
 # Show version
 torrentor -V
 
-# Show help
+# Show help (includes all available flags)
 torrentor -h
 ```
 
@@ -276,6 +315,10 @@ pytest
 # Run tests with coverage report
 pytest --cov=torrentor
 ```
+
+## Author
+
+**Kolja Nolte** — [kolja.nolte@gmail.com](mailto:kolja.nolte@gmail.com)
 
 ## License
 
