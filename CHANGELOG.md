@@ -32,3 +32,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI flags are per-run only and never save to the config file
 - Every flag shows its type (PATH, NUMBER, TRUE/FALSE, MODE) and default value in `--help`
 - Bold spaced title in the banner for stronger branding
+- Production-ready packaging: PyPI metadata, project URLs, keywords, py.typed marker, MANIFEST.in
+- Development extras include build and twine for PyPI publishing

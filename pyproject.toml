@@ -6,8 +6,17 @@ authors = [{ name = "Kolja Nolte", email = "kolja.nolte@gmail.com" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = [
+    "torrent",
+    "bittorrent",
+    "magnet",
+    "download",
+    "cli",
+    "transmission",
+    "terminal",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
@@ -19,7 +28,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Communications :: File Sharing",
+    "Typing :: Typed",
 ]
 dependencies = [
     "typer>=0.9.0",
@@ -33,7 +44,15 @@ dev = [
     "mypy>=1.10.0",
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
+    "build>=1.0.0",
+    "twine>=5.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/thaikolja/torrentor-cli"
+Repository = "https://github.com/thaikolja/torrentor-cli"
+Issues = "https://github.com/thaikolja/torrentor-cli/issues"
+Changelog = "https://github.com/thaikolja/torrentor-cli/blob/main/CHANGELOG.md"
 
 [project.scripts]
 torrentor = "torrentor.cli:app"
@@ -41,6 +60,12 @@ torrentor = "torrentor.cli:app"
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["torrentor*"]
+
+[tool.setuptools.package-data]
+torrentor = ["py.typed"]
 
 [tool.ruff]
 target-version = "py310"
