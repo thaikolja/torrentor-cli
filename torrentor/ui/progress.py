@@ -14,7 +14,7 @@ from torrentor.ui.theme import CYAN, DIM, SUCCESS, console
 CONTROLS_HINT = f"  [{DIM}]Ctrl+C to cancel[/]"
 
 
-# Build a progress bar with spinner, name, bar, percentage, speeds, and peer count
+# Build a progress bar with spinner, name, bar, percentage, speeds, and estimated time
 def create_download_progress() -> Progress:
     """Return a Progress instance suited for tracking a single active download."""
     return Progress(
@@ -24,7 +24,7 @@ def create_download_progress() -> Progress:
         TaskProgressColumn(),
         TextColumn("[speed.down]{task.fields[down]}[/] [dim]↓[/]"),
         TextColumn("[speed.up]{task.fields[up]}[/] [dim]↑[/]"),
-        TextColumn("[peers]{task.fields[peers]} peers[/]"),
+        TextColumn("[eta]{task.fields[eta]}[/]"),
         console=console,
         expand=False,
     )

@@ -133,6 +133,17 @@ def _extract_name(source: str) -> str:
     return source.rsplit("/", maxsplit=1)[-1]
 
 
+# Format a duration in seconds to a human-readable time string
+def _format_eta(seconds: float) -> str:
+    """Turn seconds into mm:ss or h:mm:ss."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
 # Check if an engine's cache actually contains downloaded data
 def _has_cache_data(engine: TransmissionEngine | None) -> bool:
     """Return True if the engine has a temp dir with actual files in it."""
@@ -237,29 +248,50 @@ def _run_download(
     task_label = name if len(name) <= 30 else name[:27] + "..."
     task_id: TaskID | None = None
 
-    # Track elapsed time and whether we've already shown the slow-download warning
+    # Track elapsed time, progress rate, and whether we've already shown the slow-download warning
     download_start = time.monotonic()
+    first_progress_time: float | None = None
+    first_progress_pct = 0.0
     slow_warned = False
 
     # This callback gets called by the engine on every progress update
     def on_progress(info: dict) -> None:
-        nonlocal task_id, slow_warned
+        nonlocal task_id, slow_warned, first_progress_time, first_progress_pct
         pct = info.get("progress", 0.0)
+        now = time.monotonic()
 
         # Parse raw speed strings and re-format with auto-scaling units
         down_kbps = parse_speed_kbps(info.get("down_speed", "—"))
         up_kbps = parse_speed_kbps(info.get("up_speed", "—"))
-        fields = {
-            "down": format_speed(down_kbps),
-            "up": format_speed(up_kbps),
-            "peers": info.get("peers", 0),
-        }
+        down = format_speed(down_kbps)
+        up = format_speed(up_kbps)
+
+        # Estimate time remaining from progress rate
+        if first_progress_time is None:
+            first_progress_time = now
+            first_progress_pct = pct
+            eta = "--:--"
+        else:
+            elapsed_since_first = now - first_progress_time
+            gained = pct - first_progress_pct
+            if elapsed_since_first > 3 and gained > 0.5:
+                rate = gained / elapsed_since_first
+                remaining_seconds = (100 - pct) / rate
+                # Cap at 999 hours to avoid absurd values
+                if remaining_seconds > 0 and remaining_seconds < 999 * 3600:
+                    eta = _format_eta(remaining_seconds)
+                else:
+                    eta = "--:--"
+            else:
+                eta = "--:--"
 
         if task_id is None:
             # First progress update — replace the connecting task with real data
-            task_id = progress.add_task(task_label, total=100, completed=pct, **fields)
+            task_id = progress.add_task(
+                task_label, total=100, completed=pct, down=down, up=up, eta=eta
+            )
         else:
-            progress.update(task_id, completed=pct, **fields)
+            progress.update(task_id, completed=pct, down=down, up=up, eta=eta)
 
         # After 90 seconds, check if the download is unusually slow
         elapsed = time.monotonic() - download_start
@@ -277,7 +309,7 @@ def _run_download(
         with progress:
             # Add an initial "connecting" task so the spinner shows right away
             connecting_id = progress.add_task(
-                "Connecting...", total=None, down="—", up="—", peers=0
+                "Connecting...", total=None, down="—", up="—", eta="--:--"
             )
 
             # Remove the connecting task on first real update
