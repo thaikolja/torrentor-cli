@@ -144,6 +144,30 @@ def _format_eta(seconds: float) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 
+# Delete all torrentor temp/cache directories from the system temp folder
+def _flush_cache() -> None:
+    """Find and remove all torrentor-* directories in the system temp folder."""
+    import shutil
+    import tempfile
+
+    temp_root = Path(tempfile.gettempdir())
+    dirs = sorted(temp_root.glob("torrentor-*"))
+
+    if not dirs:
+        info_panel("No Cache", "There are no cached downloads to clean up")
+        return
+
+    total_bytes = 0
+    for d in dirs:
+        for f in d.rglob("*"):
+            if f.is_file():
+                total_bytes += f.stat().st_size
+        shutil.rmtree(d, ignore_errors=True)
+
+    size = format_size(total_bytes)
+    success_panel(f"Cleared {len(dirs)} cached download(s), freeing {size}")
+
+
 # Check if an engine's cache actually contains downloaded data
 def _has_cache_data(engine: TransmissionEngine | None) -> bool:
     """Return True if the engine has a temp dir with actual files in it."""
@@ -374,6 +398,12 @@ def main(
         metavar="TRUE/FALSE",
         help="Download and upload at full speed (Default: false)",
     ),
+    flush_cache: bool = typer.Option(
+        False,
+        "--flush-cache",
+        "-f",
+        help="Delete all cached/incomplete downloads",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -460,6 +490,11 @@ def main(
     # If a subcommand was invoked (like "config"), let it handle things
     if ctx.invoked_subcommand is not None:
         return
+
+    # Flush cache and exit if requested
+    if flush_cache:
+        _flush_cache()
+        raise typer.Exit()
 
     # Pick up the source from any extra positional args (magnet link or .torrent path)
     source = ctx.args[0] if ctx.args else None

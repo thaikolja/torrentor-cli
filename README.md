@@ -177,29 +177,30 @@ Everything below is visible when you run `torrentor -h`. No need to dig into sub
 
 **Options** (the important ones):
 
-| Flag              | Short | Type   | What it does                                                   |
-| ----------------- | ----- | ------ | -------------------------------------------------------------- |
-| `--save-to`       | `-o`  | PATH   | Choose where to save the file (default: your Downloads folder) |
-| `--no-limit`      | `-n`  |        | Remove all speed limits                                        |
+| Flag               | Short | Type       | What it does                                                  |
+| ------------------ | ----- | ---------- | ------------------------------------------------------------- |
+| `--save-to`        | `-o`  | PATH       | Where to save the file (Default: ~/Downloads)                 |
+| `--no-limit`       | `-n`  | TRUE/FALSE | Download at full speed (Default: false)                       |
+| `--flush-cache`    | `-f`  |            | Delete all cached/incomplete downloads                       |
 
 **Optional** (extra control):
 
-| Flag              | Short | Type   | What it does                                                   |
-| ----------------- | ----- | ------ | -------------------------------------------------------------- |
-| `--max-download`  | `-l`  | NUMBER | Limit download speed in kB/s (e.g. `-l 5000` for 5 MB/s)      |
-| `--max-upload`    | `-u`  | NUMBER | Limit upload speed in kB/s                                     |
-| `--timeout`       | `-t`  | NUMBER | Stop the download after this many seconds                      |
+| Flag              | Short | Type   | What it does                                                  |
+| ----------------- | ----- | ------ | ------------------------------------------------------------- |
+| `--max-download`  | `-l`  | NUMBER | Limit download speed, in kB/s (Default: no limit)             |
+| `--max-upload`    | `-u`  | NUMBER | Limit upload speed, in kB/s (Default: no limit)               |
+| `--timeout`       | `-t`  | NUMBER | Stop after this many seconds (Default: none)                  |
 
 **Advanced** (for power users):
 
 | Flag              | Short | Type       | What it does                                                                              |
 | ----------------- | ----- | ---------- | ----------------------------------------------------------------------------------------- |
-| `--seed`          | `-s`  | TRUE/FALSE | Keep [sharing](https://en.wikipedia.org/wiki/Seeding_(computing)) after the download ends |
-| `--in-order`      | `-q`  | TRUE/FALSE | Download from start to finish (useful for previewing large files)                         |
-| `--check`         | `-y`  | TRUE/FALSE | Double-check the file for errors after downloading                                        |
-| `--port`          | `-p`  | NUMBER     | Set the [network port](https://en.wikipedia.org/wiki/Port_(computer_networking)) for peers |
-| `--encryption`    | `-e`  | MODE       | Set [connection privacy](https://en.wikipedia.org/wiki/Transport_Layer_Security): `required`, `preferred`, or `tolerated` |
-| `--blocklist`     | `-b`  | TRUE/FALSE | Block known bad peers from connecting to you                                              |
+| `--seed`          | `-s`  | TRUE/FALSE | Keep [sharing](https://en.wikipedia.org/wiki/Seeding_(computing)) after download (Default: false) |
+| `--in-order`      | `-q`  | TRUE/FALSE | Download from start to finish instead of jumping around (Default: false)                  |
+| `--check`         | `-y`  | TRUE/FALSE | Check the file for errors after downloading (Default: false)                              |
+| `--port`          | `-p`  | NUMBER     | Network port for peers (Default: 51413)                                                    |
+| `--encryption`    | `-e`  | MODE       | Connection privacy: required, preferred, or tolerated (Default: preferred)                |
+| `--blocklist`     | `-b`  | TRUE/FALSE | Block known bad peers (Default: false)                                                     |
 
 ### Managing Your Settings
 
@@ -239,7 +240,7 @@ You paste a magnet link, file path, or URL
         │
         ▼
 transmission-cli downloads the file in the background
-        │  (you see a live progress bar with speed and peers)
+        │  (you see a live progress bar with speed and estimated time)
         ▼
 Download complete: sharing stops automatically
         │
@@ -268,6 +269,9 @@ torrentor "magnet:?xt=urn:btih:..."
 
 # Download with options
 torrentor ./file.torrent --save-to ~/Movies --max-download 5000
+
+# Delete cached/incomplete downloads
+torrentor --flush-cache
 
 # View your settings
 torrentor config

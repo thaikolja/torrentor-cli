@@ -1,11 +1,12 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## v1.0.0
 
-## [1.0.0] - 2024-06-12
+**Released:** June 12, 2026
+
+**This is the stable first version of *torrenteror* – an easy CLI tool that lets you download a magnet or torrent file from your command line. See [README.md](./README.md) to see how it works.**
 
 ### Added
 
@@ -32,5 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI flags are per-run only and never save to the config file
 - Every flag shows its type (PATH, NUMBER, TRUE/FALSE, MODE) and default value in `--help`
 - Bold spaced title in the banner for stronger branding
+- `--flush-cache` / `-f` flag to manually delete all cached/incomplete downloads
 - Production-ready packaging: PyPI metadata, project URLs, keywords, py.typed marker, MANIFEST.in
 - Development extras include build and twine for PyPI publishing
