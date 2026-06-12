@@ -1,5 +1,5 @@
 [project]
-name = "torrentor"
+name = "torrentor-cli"
 version = "1.0.0"
 description = "Download torrents from the command line — easy, fast, cross-platform."
 authors = [{ name = "Kolja Nolte", email = "kolja.nolte@gmail.com" }]

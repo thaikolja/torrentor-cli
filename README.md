@@ -1,4 +1,4 @@
-[![PyPI Version](https://img.shields.io/pypi/v/torrentor?style=rounded)](https://pypi.org/project/torrentor/) [![Release](https://img.shields.io/github/v/release/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/releases) [![Python Versions](https://img.shields.io/pypi/pyversions/torrentor?style=rounded&logo=python&logoColor=white)](https://pypi.org/project/torrentor/) [![License](https://img.shields.io/github/license/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/blob/main/LICENSE) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=rounded)](https://github.com/astral-sh/ruff)
+[![PyPI Version](https://img.shields.io/pypi/v/torrentor-cli?style=rounded)](https://pypi.org/project/torrentor-cli/) [![Release](https://img.shields.io/github/v/release/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/releases) [![Python Versions](https://img.shields.io/pypi/pyversions/torrentor-cli?style=rounded&logo=python&logoColor=white)](https://pypi.org/project/torrentor-cli/) [![License](https://img.shields.io/github/license/thaikolja/torrentor-cli?style=rounded)](https://github.com/thaikolja/torrentor-cli/blob/main/LICENSE) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=rounded)](https://github.com/astral-sh/ruff)
 
 # torrentor
 
@@ -83,32 +83,22 @@ Or use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Sub
 
 ## Installing Torrentor
 
-### With Pipx (Recommended)
-
-[pipx](https://pipx.pypa.io/) installs torrentor in its own isolated environment so it doesn't interfere with anything else on your system.
-
-First, install pipx if you don't have it:
+### With Homebrew (Recommended)
 
 ```bash
-# macOS
-brew install pipx
-
-# Linux (Debian / Ubuntu)
-sudo apt install pipx
-
-# Windows (Scoop)
-scoop install pipx
-
-# Or with pip (works everywhere)
-pip install --user pipx
+# Add the tap and install
+brew tap thaikolja/torrentor-cli
+brew install torrentor-cli
 ```
 
-Then install torrentor:
+### With Pipx
 
 ```bash
-# Install torrentor via pipx
-pipx install torrentor
+# Install torrentor-cli from PyPI
+pipx install torrentor-cli
 ```
+
+If you need pipx first: `brew install pipx` (macOS), `sudo apt install pipx` (Linux), `scoop install pipx` (Windows), or `pip install --user pipx`.
 
 ### With Pip
 
